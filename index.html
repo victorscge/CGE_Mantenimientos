@@ -247,7 +247,7 @@ function load(){
   DB=freshSeed();
 }
 function freshSeed(){const d=clone(SEED);d.cfg=Object.assign({},CFG_DEF,SEED.cfg||{});d.meta={cargado:new Date().toISOString(),fuente:'Datos conciliados de los reportes semanales'};return d}
-function save(){if(CLOUD.on){if(CLOUD.first)cloudSync();return}try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast('No se pudo guardar en este navegador; exporta un respaldo JSON.')}}
+function save(){if(CLOUD.on){if(CLOUD.first)cloudSync();return}if(typeof SERVER_ONLY!=='undefined'&&SERVER_ONLY)return;try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast('No se pudo guardar en este navegador; exporta un respaldo JSON.')}}
 
 /* ---------- estandarización de textos ---------- */
 const TYPO={'revisón':'revisión','manteniemiento':'mantenimiento','mantenimeinto':'mantenimiento','letretros':'letreros','ofinas':'oficinas','remplazo':'reemplazo','trabajao':'trabajo','celosias':'celosías','carcamos':'cárcamos','carcámos':'cárcamos','carcamo':'cárcamo','sotano':'sótano','remodelacion':'remodelación','reparacion':'reparación','rehabilitacion':'rehabilitación','instalacion':'instalación','proteccion':'protección','mezanine':'mezzanine','tejaban':'tejabán','pajaros':'pájaros','electrica':'eléctrica','electricas':'eléctricas','electricos':'eléctricos','electrico':'eléctrico','ciclonica':'ciclónica','lamparas':'lámparas','lampara':'lámpara','lamina':'lámina','laminas':'láminas','area':'área','areas':'áreas','exhibicion':'exhibición','adecuacion':'adecuación','colocacion':'colocación','cimentacion':'cimentación','energia':'energía','baño':'baño','banos':'baños','porton':'portón','canceleria':'cancelería','cotizacion':'cotización','oficina':'oficina','susuki':'Suzuki','plafon':'plafón','plafones':'plafones','iluminacion':'iluminación','señalizacion':'señalización','senalizacion':'señalización','impermeabilizacion':'impermeabilización','fachda':'fachada','acondicionamieto':'acondicionamiento'};
@@ -742,6 +742,7 @@ async function startSheets(transport){
   startCloud(db,user);
 }
 function cloudFail(e){
+  if(CLOUD.backend==='supabase'&&!CLOUD.first){setChip('err');serverOnly(((e&&e.message)||'Sin respuesta')+'. Revisa tu internet y vuelve a intentar.');return}
   showLoader(false);setChip('err');
   if(!CLOUD.first){
     const msg=(e&&e.message)||'sin respuesta';
@@ -813,25 +814,33 @@ function loginScreen(msg){
       <label class="f"><span class="muted" style="font-size:13px">Correo</span><input id="lgE" type="email" autocomplete="username" required style="width:100%"></label>
       <label class="f"><span class="muted" style="font-size:13px">Contraseña</span><input id="lgP" type="password" autocomplete="current-password" required style="width:100%"></label>
       <button class="btn primary" type="submit" id="lgB" style="justify-content:center">Entrar</button>
-      <button class="btn" type="button" id="lgL" style="justify-content:center">Trabajar sin conexión (copia local)</button>
       <p class="note" style="margin:0;font-size:12.5px">¿No tienes acceso u olvidaste tu contraseña? Pídelo a quien administra la app.</p></form>`;
     $('#lgE').focus();
-    $('#lgL').onclick=()=>res(null);
     $('#lgF').onsubmit=async e=>{e.preventDefault();const b=$('#lgB');b.disabled=true;b.textContent='Entrando…';
       const {data,error}=await SB.auth.signInWithPassword({email:$('#lgE').value.trim().toLowerCase(),password:$('#lgP').value});
       if(error){b.disabled=false;b.textContent='Entrar';const p=l.querySelector('.badcell')||document.createElement('p');p.className='badcell';p.style.cssText='margin:0;font-size:14px';p.textContent=/invalid/i.test(error.message)?'Correo o contraseña incorrectos':'No se pudo entrar: '+error.message;$('#lgE').closest('label').before(p);return}
       res(data.session)};
   });
 }
+function serverOnly(msg){
+  const l=$('#loader');l.style.display='flex';
+  l.innerHTML=`<div class="panel" style="width:min(400px,92vw);display:grid;gap:12px;text-align:center">
+    <div class="stripe" style="margin:-16px -16px 4px;border-radius:10px 10px 0 0"></div>
+    <h2 style="font-size:24px">Sin conexión con la base del equipo</h2>
+    <p class="muted" style="margin:0">${esc(msg||'Revisa tu conexión a internet.')}</p>
+    <p class="note" style="margin:0;font-size:13px">Por seguridad, esta app solo trabaja con los datos del servidor; no guarda copias en este navegador.</p>
+    <button class="btn primary" id="soRetry" style="justify-content:center">Reintentar</button></div>`;
+  $('#soRetry').onclick=()=>location.reload();
+}
 function restoreLoader(){$('#loader').innerHTML='<div style="text-align:center"><div class="stripe" style="width:220px;margin:0 auto 14px"></div><h2 style="font-size:24px">Conectando con la base del equipo…</h2><p class="muted">Cargando solicitudes y catálogos</p></div>'}
 async function startSupabase(){
   SB=window.supabase.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:KEY+'_supa'}});
   let {data:{session}}=await SB.auth.getSession();
-  if(!session){session=await loginScreen();if(!session){restoreLoader();showLoader(false);setChip('local');setBanner();render();return}}
+  if(!session)session=await loginScreen();
   restoreLoader();showLoader(true);
   const email=String(session.user.email||'').toLowerCase();
   let me=null;try{const {data}=await SB.from('miembros').select('email,nombre,rol').eq('email',email).maybeSingle();me=data}catch(e){}
-  if(!me){await SB.auth.signOut();const s=await loginScreen(`La cuenta ${email} no está autorizada en la lista del equipo.`);if(!s){restoreLoader();showLoader(false);setChip('local');setBanner();render();return}return location.reload()}
+  if(!me){await SB.auth.signOut();await loginScreen(`La cuenta ${email} no está autorizada en la lista del equipo.`);return location.reload()}
   let names={};try{const {data}=await SB.from('miembros').select('email,nombre');(data||[]).forEach(m=>names[m.email.toLowerCase()]=m.nombre||m.email)}catch(e){}
   window.__localWarn=false;CLOUD.backend='supabase';CLOUD.supaUser=me;MAXW=6;
   const user={id:async()=>email,canEdit:async()=>me.rol==='editor',can:async()=>me.rol==='editor',
@@ -842,7 +851,10 @@ async function startSupabase(){
 }
 async function supaLogout(){if(await confirmBox('Cerrar sesión','Saldrás de la base del equipo en este navegador.','Cerrar sesión')){await SB.auth.signOut();location.reload()}}
 
+var SERVER_ONLY=!!(SUPA.url&&SUPA.key)&&!(window.claude&&typeof window.claude.use==='function');
 async function boot(){
+  if(SERVER_ONLY){try{localStorage.removeItem(KEY)}catch(e){}
+    if(!SUPA_ON()){load();DB.cfg=Object.assign({},CFG_DEF,SEED.cfg||{},DB.cfg||{});serverOnly('No se pudo cargar la conexión con el servidor. Revisa tu internet.');return}}
   load();DB.cfg=Object.assign({},CFG_DEF,SEED.cfg||{},DB.cfg||{});if(!DB.snap)DB.snap=clone(SEED.snap);if(!DB.cat)DB.cat={};Object.keys(SEED.cat).forEach(k=>{if(!Array.isArray(DB.cat[k]))DB.cat[k]=clone(SEED.cat[k])});
   const inViewer=!!(window.claude&&typeof window.claude.use==='function');
   window.__localWarn=true;
