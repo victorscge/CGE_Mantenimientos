@@ -193,6 +193,23 @@ select option,select optgroup{background-color:var(--panel);color:var(--text)}
 .cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:16px;align-items:start}.colchecks{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}
 @media (max-width:720px){.bar{padding:10px 12px}main{padding:12px}.brand h1{font-size:22px}.g-lab{width:150px;min-width:150px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#notasBtn{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.np-n{background:var(--bad);color:#fff;border-radius:999px;min-width:20px;height:20px;padding:0 6px;font-size:12px;align-items:center;justify-content:center}
+#notasPop{position:fixed;top:calc(env(safe-area-inset-top,0px) + 64px);right:16px;width:min(400px,calc(100vw - 32px));max-height:calc(100vh - 90px);overflow:auto;z-index:70;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:12px 14px;display:none}
+#notasPop.on{display:block}
+.np-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:16px}
+.np-f{display:grid;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.np-f textarea{width:100%;resize:vertical}
+.np-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.np-ctx{margin:0;font-size:12.5px;color:var(--muted)}
+.np-err{background:var(--bad-soft);color:var(--bad);border-radius:6px;padding:6px 8px;font-size:13px;margin:0 0 8px}
+.np-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.np-it{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--panel2)}
+.np-it.resuelta{border-left-color:var(--ok);opacity:.8}
+.np-meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px}
+.np-txt{margin:6px 0 2px;white-space:pre-wrap;font-size:14px}
+.np-act{display:flex;gap:6px;margin-top:6px}.np-act .btn{padding:4px 9px;font-size:13px}
+@media print{#notasBtn,#notasPop{display:none!important}}
 </style>
 </head>
 <body>
@@ -847,8 +864,75 @@ async function startSupabase(){
     profiles:async ids=>Object.fromEntries([].concat(ids).map(i=>[i,{id:i,name:names[String(i).toLowerCase()]||i,isMe:String(i).toLowerCase()===email}]))};
   SB.auth.onAuthStateChange(ev=>{if(ev==='SIGNED_OUT')location.reload()});
   DB.solicitudes=[];
+  window.__supaNames=names;
   startCloud(makeSupaDb(SB),user);
+  notasInit();
 }
+/* ================= ANOTACIONES DEL EQUIPO (pop up superior derecho) ================= */
+const NOTAS={list:[],open:false,filtro:'pendiente',ch:null,ok:false};
+function notaContexto(){
+  const b=$('#nav button[aria-current="page"]');const pest=b?b.textContent.trim():'';
+  let sol='';if(OPEN_ID){const s=DB.solicitudes.find(x=>x.id===OPEN_ID);if(s)sol='Folio '+(s.folio||s.id)+(s.agencia?' · '+s.agencia:'')}
+  return {pest,sol};
+}
+function notaNombre(email){const m=(window.__supaNames||{})[String(email||'').toLowerCase()];return m||String(email||'').split('@')[0]}
+async function notasLoad(){
+  if(!SB)return;
+  const {data,error}=await SB.from('notas').select('*').order('creada',{ascending:false}).limit(500);
+  if(error){NOTAS.ok=false;notasDraw(/notas|relation|schema/i.test(error.message)?'Falta crear la tabla de anotaciones en Supabase.':'No se pudieron cargar las anotaciones.');return}
+  NOTAS.ok=true;NOTAS.list=data||[];notasBadge();if(NOTAS.open)notasDraw();
+}
+function notasBadge(){const n=NOTAS.list.filter(x=>x.estado==='pendiente').length;const c=$('#notasN');if(c){c.textContent=n;c.style.display=n?'inline-flex':'none'}}
+function notasDraw(err){
+  const box=$('#notasPop');if(!box)return;
+  const ctx=notaContexto();
+  const arr=NOTAS.list.filter(x=>NOTAS.filtro==='todas'||x.estado===NOTAS.filtro);
+  const cnt=k=>NOTAS.list.filter(x=>x.estado===k).length;
+  const me=String(CLOUD.uid||'').toLowerCase();
+  box.innerHTML=`<div class="np-h"><b>Anotaciones de cambios</b><button class="icon-btn" id="npX" aria-label="Cerrar">✕</button></div>
+  ${err?`<p class="np-err">${esc(err)}</p>`:''}
+  <form id="npF" class="np-f">
+    <textarea id="npT" rows="3" placeholder="¿Qué hay que cambiar o corregir?" required></textarea>
+    <div class="np-row"><select id="npTipo" aria-label="Tipo"><option>Corrección de dato</option><option>Cambio en la app</option><option>Idea / mejora</option><option>Duda</option></select>
+    <select id="npPrio" aria-label="Prioridad"><option value="media">Prioridad media</option><option value="alta">Prioridad alta</option><option value="baja">Prioridad baja</option></select></div>
+    <p class="np-ctx">Se guarda con: <b>${esc(ctx.pest||'—')}</b>${ctx.sol?' · '+esc(ctx.sol):''}</p>
+    <button class="btn primary" type="submit" ${CLOUD.readonly?'disabled':''}>Enviar anotación</button>
+  </form>
+  <div class="np-tabs">${[['pendiente','Pendientes'],['resuelta','Resueltas'],['todas','Todas']].map(([k,t])=>`<button class="count" data-nf="${k}" aria-pressed="${NOTAS.filtro===k}">${t} ${k==='todas'?NOTAS.list.length:cnt(k)}</button>`).join('')}
+    <button class="count" id="npCopy" title="Copiar las anotaciones pendientes para pegarlas en un mensaje">Copiar</button></div>
+  <div class="np-list">${arr.length?arr.map(n=>`<div class="np-it ${n.estado}">
+     <div class="np-meta"><span class="chip sev-${n.prioridad||'media'}">${esc(n.prioridad||'media')}</span><span class="chip">${esc(n.tipo||'')}</span><span class="muted">${esc(notaNombre(n.autor))} · ${new Date(n.creada).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</span></div>
+     <div class="np-txt">${esc(n.texto)}</div>
+     ${n.pestana||n.solicitud?`<div class="sub">${esc([n.pestana,n.solicitud].filter(Boolean).join(' · '))}</div>`:''}
+     ${n.estado==='resuelta'&&n.resuelta_por?`<div class="sub">Resuelta por ${esc(notaNombre(n.resuelta_por))}${n.respuesta?': '+esc(n.respuesta):''}</div>`:''}
+     <div class="np-act">${n.estado==='pendiente'?`<button class="btn" data-nres="${n.id}">✓ Marcar resuelta</button>`:`<button class="btn" data-nreo="${n.id}">Reabrir</button>`}${String(n.autor).toLowerCase()===me?`<button class="btn" data-ndel="${n.id}">Borrar</button>`:''}</div>
+   </div>`).join(''):`<p class="muted" style="text-align:center;margin:14px 0">${NOTAS.ok?'No hay anotaciones aquí.':'Cargando…'}</p>`}</div>`;
+  $('#npX').onclick=()=>notasToggle(false);
+  $$('[data-nf]',box).forEach(b=>b.onclick=()=>{NOTAS.filtro=b.dataset.nf;notasDraw()});
+  $('#npF').onsubmit=async e=>{e.preventDefault();const t=$('#npT').value.trim();if(!t)return;const btn=$('#npF button[type=submit]');btn.disabled=true;
+    const c=notaContexto();
+    const {error}=await SB.from('notas').insert({texto:t,tipo:$('#npTipo').value,prioridad:$('#npPrio').value,pestana:c.pest,solicitud:c.sol,solicitud_id:OPEN_ID||null});
+    btn.disabled=false;if(error){toast('No se pudo guardar la anotación');return}
+    $('#npT').value='';toast('Anotación enviada');NOTAS.filtro='pendiente';notasLoad()};
+  $$('[data-nres]',box).forEach(b=>b.onclick=async()=>{const r=prompt('Opcional: ¿qué se hizo?')||'';const {error}=await SB.from('notas').update({estado:'resuelta',respuesta:r,resuelta_por:CLOUD.uid,resuelta_en:new Date().toISOString()}).eq('id',b.dataset.nres);if(error)toast('No se pudo actualizar');notasLoad()});
+  $$('[data-nreo]',box).forEach(b=>b.onclick=async()=>{const {error}=await SB.from('notas').update({estado:'pendiente'}).eq('id',b.dataset.nreo);if(error)toast('No se pudo actualizar');notasLoad()});
+  $$('[data-ndel]',box).forEach(b=>b.onclick=async()=>{if(!await confirmBox('Borrar anotación','Se borrará para todo el equipo.','Borrar',true))return;const {error}=await SB.from('notas').delete().eq('id',b.dataset.ndel);if(error)toast('No se pudo borrar');notasLoad()});
+  $('#npCopy').onclick=async()=>{const p=NOTAS.list.filter(x=>x.estado==='pendiente');
+    const txt=p.map((n,i)=>`${i+1}. [${n.prioridad}] ${n.tipo} — ${n.texto}${n.pestana||n.solicitud?` (${[n.pestana,n.solicitud].filter(Boolean).join(' · ')})`:''} — ${notaNombre(n.autor)}, ${new Date(n.creada).toLocaleDateString('es-MX')}`).join('\n');
+    try{await navigator.clipboard.writeText(txt||'Sin anotaciones pendientes');toast(`${p.length} anotación(es) copiadas`)}catch(e){prompt('Copia el texto:',txt)}};
+}
+function notasToggle(on){NOTAS.open=on===undefined?!NOTAS.open:on;const p=$('#notasPop');p.classList.toggle('on',NOTAS.open);if(NOTAS.open){notasDraw();notasLoad();setTimeout(()=>{const t=$('#npT');if(t)t.focus()},60)}}
+function notasInit(){
+  if(!SB||$('#notasBtn'))return;
+  const b=document.createElement('button');b.id='notasBtn';b.className='icon-btn';b.title='Anotaciones de cambios para el equipo';b.setAttribute('aria-label','Anotaciones');
+  b.innerHTML='✎ Anotaciones <span id="notasN" class="np-n" style="display:none">0</span>';
+  $('#themeBtn').before(b);b.onclick=()=>notasToggle();
+  const p=document.createElement('div');p.id='notasPop';p.setAttribute('role','dialog');p.setAttribute('aria-label','Anotaciones');document.body.appendChild(p);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&NOTAS.open)notasToggle(false)});
+  notasLoad();
+  NOTAS.ch=SB.channel('rt-notas').on('postgres_changes',{event:'*',schema:'public',table:'notas'},()=>notasLoad()).subscribe();
+}
+
 async function supaLogout(){if(await confirmBox('Cerrar sesión','Saldrás de la base del equipo en este navegador.','Cerrar sesión')){await SB.auth.signOut();location.reload()}}
 
 var SERVER_ONLY=!!(SUPA.url&&SUPA.key)&&!(window.claude&&typeof window.claude.use==='function');
