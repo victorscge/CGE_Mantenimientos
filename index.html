@@ -210,6 +210,10 @@ select option,select optgroup{background-color:var(--panel);color:var(--text)}
 .np-txt{margin:6px 0 2px;white-space:pre-wrap;font-size:14px}
 .np-act{display:flex;gap:6px;margin-top:6px}.np-act .btn{padding:4px 9px;font-size:13px}
 @media print{#notasBtn,#notasPop{display:none!important}}
+.pl-card{grid-column:1/-1}
+.pl-cfg summary{cursor:pointer;font-weight:600;margin-top:4px}
+.pl-t{width:100%;border-collapse:collapse}.pl-t td{padding:5px 8px}.pl-t input,.pl-t select{width:100%}
+.pl-t td:last-child{white-space:nowrap;width:1%}
 </style>
 </head>
 <body>
@@ -1840,6 +1844,100 @@ async function importCSV(){const f=await pickFile('.csv,text/csv');if(!f)return;
   if(hi>=0)return await restoreData(rowsToData(rows.slice(hi+1)),'El archivo CSV');
   if(await confirmBox('No es un respaldo completo','Este CSV no tiene las columnas del respaldo de la app. ¿Leerlo como tabla de solicitudes?','Leer solicitudes'))await importSolicitudes(f);
 }catch(e){toast('No se pudo importar: '+e.message)}}
+/* ================= EXPORTAR SEGÚN PLANTILLA (CSV externo) ================= */
+const PL_SRC={
+  vacio:{t:'(vacío)',f:()=>''},
+  fijo:{t:'Valor fijo…',f:(s,c)=>c.fijo||''},
+  folio:{t:'Folio',f:s=>s.folio||''},
+  descripcion:{t:'Descripción',f:s=>s.descripcion||''},
+  folio_desc:{t:'Folio + descripción',f:s=>`${s.folio?s.folio+' · ':''}${s.descripcion||''}`},
+  agencia:{t:'Agencia (nombre)',f:s=>s.agencia||''},
+  inmueble_id:{t:'ID de inmueble (catálogo de agencias)',f:s=>plAg(s).inmueble_id||''},
+  ag_tipo:{t:'Tipo de agencia (Nuevos, Seminuevos…)',f:s=>plAg(s).tipo||''},
+  ag_razon:{t:'Razón social de la agencia',f:s=>plAg(s).razon||''},
+  ag_ciudad:{t:'Ciudad de la agencia',f:s=>plAg(s).ciudad||''},
+  act1:{t:'Actividad principal',f:s=>((s.actividades||[])[0]||{}).nombre||''},
+  acts:{t:'Todas las actividades',f:s=>(s.actividades||[]).map(a=>a.nombre).join('; ')},
+  forma:{t:'Forma de ejecución (Externo/Interno)',f:s=>s.forma||''},
+  solicitante:{t:'Solicitante',f:s=>s.solicitante||''},
+  cargo:{t:'Cargo del solicitante',f:s=>s.cargo||''},
+  fechaSol:{t:'Fecha de solicitud',f:s=>plDate(s.fechaSol)},
+  fechaEst:{t:'Fecha estimada de conclusión',f:s=>plDate(s.fechaEst)},
+  fechaReal:{t:'Fecha real de conclusión',f:s=>plDate(s.fechaReal)},
+  responsable:{t:'Responsable',f:s=>s.responsable||''},
+  contratista:{t:'Contratista',f:s=>s.contratista||''},
+  ot:{t:'Folio de OT',f:s=>s.ot||''},
+  estimado:{t:'Presupuesto estimado',f:s=>plNum(s.estimado)},
+  contratado:{t:'Presupuesto contratado',f:s=>plNum(s.contratado)},
+  diferencia:{t:'Diferencia (contratado − estimado)',f:s=>(s.estimado==null&&s.contratado==null)?'':plNum((+s.contratado||0)-(+s.estimado||0))},
+  estado:{t:'Estado',f:s=>s.estado||''},
+  estado_rep:{t:'Estado como en el reporte semanal',f:s=>{const e=cat('estados').find(x=>x.nombre===s.estado);return (e&&e.reporte)||s.estado||''}},
+  grupo:{t:'Grupo (En proceso / Concluida / Cancelada)',f:s=>{const e=cat('estados').find(x=>x.nombre===s.estado);return {proceso:'En proceso',concluida:'Concluida',cancelada:'Cancelada'}[(e||{}).grupo]||''}},
+  motivo:{t:'Motivo (cancelación)',f:s=>s.motivo||''},
+  ultObs:{t:'Última observación',f:s=>{const o=(s.obs||[]).slice(-1)[0];return o?o.texto:''}},
+  resolucion:{t:'Resolución (motivo o fecha de conclusión)',f:s=>s.motivo?s.motivo:(s.fechaReal?'Concluida el '+plDate(s.fechaReal):'')},
+};
+const PL_DEF={nombre:'plantilla-mantenimiento',filtro:'todas',fecha:'iso',bom:false,cols:[
+  {col:'titulo',src:'descripcion'},{col:'inmueble_id',src:'inmueble_id'},{col:'equipo_id',src:'vacio'},{col:'negocio',src:'ag_tipo'},
+  {col:'tipo',src:'act1'},{col:'prioridad',src:'fijo',fijo:''},{col:'fecha_limite',src:'fechaEst'},{col:'responsable',src:'responsable'},
+  {col:'proveedor',src:'contratista'},{col:'moneda',src:'fijo',fijo:'MXN'},{col:'costo_estimado',src:'estimado'},{col:'costo_real',src:'contratado'},
+  {col:'estado',src:'estado'},{col:'resolucion',src:'resolucion'},{col:'aceptacion',src:'fechaReal'}]};
+function PL(){if(!DB.cfg.plantilla)DB.cfg.plantilla=JSON.parse(JSON.stringify(PL_DEF));return DB.cfg.plantilla}
+function plAg(s){return cat('agencias').find(a=>a.nombre===s.agencia)||{}}
+function plDate(d){if(!d)return '';const f=PL().fecha;const [y,m,dd]=String(d).slice(0,10).split('-');return f==='dmy'?`${dd}/${m}/${y}`:`${y}-${m}-${dd}`}
+function plNum(n){return (n===null||n===undefined||n==='')?'':String(Math.round(+n*100)/100)}
+function plRows(){
+  const p=PL(),g=s=>{const e=cat('estados').find(x=>x.nombre===s.estado);return (e||{}).grupo||'proceso'};
+  const list=DB.solicitudes.filter(s=>p.filtro==='todas'||g(s)===p.filtro).slice().sort((a,b)=>String(a.folio).localeCompare(String(b.folio),'es',{numeric:true}));
+  return list.map(s=>p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;try{return String(src.f(s,c)??'')}catch(e){return ''}}));
+}
+function plCSV(){const p=PL(),q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  return (p.bom?'﻿':'')+[p.cols.map(c=>q(c.col)),...plRows().map(r=>r.map(q))].map(r=>r.join(',')).join('\r\n')+'\r\n'}
+function exportPlantilla(){const p=PL();const n=plRows().length;if(!n){toast('No hay solicitudes con ese filtro');return}
+  download(`${p.nombre||'plantilla'}_${todayStr()}.csv`,plCSV(),'text/csv;charset=utf-8')}
+function plCard(){const p=PL();
+  const opts=v=>Object.entries(PL_SRC).map(([k,o])=>`<option value="${k}"${k===v?' selected':''}>${esc(o.t)}</option>`).join('');
+  const ags=cat('agencias');const sinId=ags.filter(a=>!a.inmueble_id).length;
+  return `<div class="fs pl-card"><h3><span class="io-num">3</span>Exportar según plantilla</h3>
+   <p class="note io-desc">Genera el CSV con las columnas exactas de la plantilla <b>${esc(p.nombre)}</b> (${p.cols.length} columnas), tomando cada dato de la app según la configuración. No cambia nada de tus datos.</p>
+   <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;margin:6px 0 10px">
+    <label class="f" style="min-width:180px"><span class="muted" style="font-size:13px">Solicitudes</span><select id="plF">${[['todas','Todas'],['proceso','En proceso'],['concluida','Concluidas'],['cancelada','Canceladas']].map(([v,t])=>`<option value="${v}"${p.filtro===v?' selected':''}>${t}</option>`).join('')}</select></label>
+    <button class="btn primary" id="plX">Exportar CSV de plantilla</button><button class="btn" id="plV">Vista previa</button></div>
+   <details class="pl-cfg"><summary>Configurar columnas y formato</summary>
+    <div class="row" style="gap:10px;flex-wrap:wrap;margin:10px 0">
+     <label class="f"><span class="muted" style="font-size:13px">Nombre del archivo</span><input id="plN" value="${esc(p.nombre)}"></label>
+     <label class="f"><span class="muted" style="font-size:13px">Formato de fechas</span><select id="plD"><option value="iso"${p.fecha==='iso'?' selected':''}>aaaa-mm-dd</option><option value="dmy"${p.fecha==='dmy'?' selected':''}>dd/mm/aaaa</option></select></label>
+     <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" id="plB"${p.bom?' checked':''}> Compatible con acentos en Excel (BOM)</label></div>
+    <div class="tablewrap"><table class="pl-t"><thead><tr><th>Columna de la plantilla</th><th>Dato de la app</th><th>Valor fijo</th><th></th></tr></thead><tbody>
+     ${p.cols.map((c,i)=>`<tr><td><input data-pc="${i}" value="${esc(c.col)}"></td><td><select data-ps="${i}">${opts(c.src)}</select></td><td><input data-pf="${i}" value="${esc(c.fijo||'')}" ${c.src==='fijo'?'':'disabled'} placeholder="—"></td><td><button class="icon-btn" data-pu="${i}" title="Subir">↑</button> <button class="icon-btn" data-pd="${i}" title="Quitar">✕</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="plA">+ Agregar columna</button><button class="btn" id="plS">Guardar configuración</button><button class="btn" id="plR">Restablecer plantilla original</button></div>
+    <h4 style="margin:16px 0 6px">ID de inmueble por agencia <small class="muted">(${sinId} sin ID)</small></h4>
+    <p class="note" style="margin:0 0 8px">Captura el identificador que usa el sistema destino para cada agencia; se exporta en la columna configurada como «ID de inmueble».</p>
+    <div class="tablewrap" style="max-height:320px;overflow:auto"><table class="pl-t"><thead><tr><th>Agencia</th><th>ID de inmueble</th></tr></thead><tbody>
+     ${ags.map((a,i)=>`<tr><td>${esc(a.nombre)}</td><td><input data-ai="${i}" value="${esc(a.inmueble_id||'')}" placeholder="Sin ID"></td></tr>`).join('')}</tbody></table></div>
+    <p class="note" style="margin-top:8px">La configuración se guarda en la base del equipo: todos exportan con las mismas reglas.</p>
+   </details></div>`;
+}
+function plBind(){
+  if(!$('#plX'))return;const p=PL();
+  const collect=()=>{$$('[data-pc]').forEach(x=>p.cols[+x.dataset.pc].col=x.value.trim());$$('[data-ps]').forEach(x=>p.cols[+x.dataset.ps].src=x.value);
+    $$('[data-pf]').forEach(x=>p.cols[+x.dataset.pf].fijo=x.value);p.nombre=($('#plN').value.trim()||'plantilla');p.fecha=$('#plD').value;p.bom=$('#plB').checked;
+    const ags=cat('agencias');$$('[data-ai]').forEach(x=>{const a=ags[+x.dataset.ai];const v=x.value.trim();if(v)a.inmueble_id=v;else delete a.inmueble_id})};
+  const keepOpen=()=>{renderIO();const d=$('.pl-cfg');if(d)d.open=true};
+  $('#plF').onchange=e=>{p.filtro=e.target.value;if(!CLOUD.readonly)save()};
+  $('#plX').onclick=()=>{if($('.pl-cfg').open)collect();exportPlantilla()};
+  $('#plV').onclick=()=>{if($('.pl-cfg').open)collect();const rows=plRows();
+    modal(`<h3>Vista previa · ${rows.length} filas</h3><div class="tablewrap" style="max-height:60vh;overflow:auto"><table><thead><tr>${p.cols.map(c=>`<th>${esc(c.col)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,15).map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="muted">Se muestran las primeras 15 filas.</p>`,[{t:'Cerrar'},{t:'Exportar',cls:'primary'}]).then(r=>{if(r.i===1)exportPlantilla()})};
+  $$('[data-ps]').forEach(x=>x.onchange=()=>{const f=$(`[data-pf="${x.dataset.ps}"]`);f.disabled=x.value!=='fijo'});
+  $$('[data-pu]').forEach(b=>b.onclick=()=>{collect();const i=+b.dataset.pu;if(i>0){[p.cols[i-1],p.cols[i]]=[p.cols[i],p.cols[i-1]]}keepOpen()});
+  $$('[data-pd]').forEach(b=>b.onclick=()=>{collect();p.cols.splice(+b.dataset.pd,1);keepOpen()});
+  $('#plA').onclick=()=>{collect();p.cols.push({col:'nueva_columna',src:'vacio'});keepOpen()};
+  $('#plS').onclick=()=>{if(CLOUD.readonly){toast('Solo lectura: no puedes cambiar la configuración');return}collect();save();toast('Configuración guardada');keepOpen()};
+  $('#plR').onclick=async()=>{if(!await confirmBox('Restablecer plantilla','Las columnas vuelven a las 15 de la plantilla original con los datos sugeridos. Los ID de inmueble capturados se conservan.','Restablecer',true))return;
+    DB.cfg.plantilla=JSON.parse(JSON.stringify(PL_DEF));if(!CLOUD.readonly)save();keepOpen();toast('Plantilla restablecida')};
+}
+
 function renderIO(){
   const el=$('#v-io'),nCat=Object.keys(DB.cat||{}).reduce((a,k)=>a+cat(k).length,0);
   const incl=`<ul class="io-list"><li><b>${DB.solicitudes.length} solicitudes</b> con historial de estados, observaciones y expediente de contratación (cotizaciones, documentos, extraordinarios, pagos y garantías)</li><li><b>Catálogos</b> (${nCat} registros): agencias, responsables, solicitantes, actividades, proveedores y estados</li><li><b>Parámetros</b> de la política de contratación y horario del reporte semanal</li><li><b>Reportes semanales enviados</b> (${Object.keys(DB.snap||{}).length}) que sirven para el cuadre</li></ul>`;
@@ -1851,6 +1949,7 @@ function renderIO(){
     <p class="note io-desc">Carga un archivo exportado aquí, en <b>cualquiera de los tres formatos</b>, y recupera lo mismo que se exportó:</p>
     <ul class="io-list"><li>Antes de aplicar, te muestra cuántas solicitudes y catálogos trae</li><li>Se restauran también los parámetros de la política y los reportes enviados</li><li><b>Reemplazar todo</b> deja la app igual que el respaldo; <b>Combinar</b> agrega lo nuevo y actualiza lo existente</li><li>Un Excel o CSV que no sea respaldo de la app (reporte semanal, «2_Seguimiento_mantenimientos_intermedios») se puede leer como tabla de solicitudes</li></ul>
     <div class="io-btns"><button class="io-btn" id="iJ"><b>JSON</b><span>Archivo .json</span></button><button class="io-btn" id="iX"><b>Excel</b><span>Archivo .xlsx</span></button><button class="io-btn" id="iC"><b>CSV</b><span>Archivo .csv</span></button></div></div>
+   ${plCard()}
   </div>
   <h3 style="margin:26px 0 10px;font-size:22px">Otras opciones</h3>
   <div class="other-grid">
@@ -1861,6 +1960,7 @@ function renderIO(){
     <p class="note">Modo: <b>${CLOUD.on?(CLOUD.backend==='sheets'?'Google Sheets del equipo':'base compartida en la nube'):'copia local en este navegador'}</b>${CLOUD.on?` · Tu acceso: <b>${CLOUD.readonly?'solo lectura':CLOUD.canAdmin?'editor':'colaborador'}</b>`:''}</p><p class="note">Último respaldo exportado desde este navegador: <b>${PREFS.lastExport?fmtDT(new Date(PREFS.lastExport)):'nunca'}</b></p></div>
   </div>`;
   bindSheetsCard();if($('#supaOut'))$('#supaOut').onclick=supaLogout;
+  plBind();
   $('#xJ').onclick=exportJSON;$('#xX').onclick=exportExcel;$('#xC').onclick=exportCSV;
   $('#iJ').onclick=importJSON;$('#iX').onclick=importExcel;$('#iC').onclick=importCSV;
   $('#tpl').onclick=()=>{const ex=flat({folio:'81',fechaSol:todayStr(),horaSol:'10:15:00',solicitante:'Víctor Rodríguez',cargo:'Director de Proyectos',agencia:'Corporativo',descripcion:'Pintura en muros de recepción',actividades:[{nombre:'Pintura'}],responsable:'Octavio Esparza Manrique',forma:'Externo',contratista:'MEMR',ot:'',estado:'En cotización o contratación',motivo:'',estimado:45000,contratado:null,inicio:null,plazo:'2',fechaEst:null,fechaReal:null,obs:[]});
