@@ -1877,7 +1877,7 @@ const PL_SRC={
   ultObs:{t:'Última observación',f:s=>{const o=(s.obs||[]).slice(-1)[0];return o?o.texto:''}},
   resolucion:{t:'Resolución (motivo o fecha de conclusión)',f:s=>s.motivo?s.motivo:(s.fechaReal?'Concluida el '+plDate(s.fechaReal):'')},
 };
-const PL_DEF={nombre:'plantilla-mantenimiento',filtro:'todas',fecha:'iso',bom:false,cols:[
+const PL_DEF={nombre:'plantilla-mantenimiento',filtro:'todas',fecha:'iso',sinBom:false,cols:[
   {col:'titulo',src:'descripcion'},{col:'inmueble_id',src:'inmueble_id'},{col:'equipo_id',src:'vacio'},{col:'negocio',src:'ag_tipo'},
   {col:'tipo',src:'act1'},{col:'prioridad',src:'fijo',fijo:''},{col:'fecha_limite',src:'fechaEst'},{col:'responsable',src:'responsable'},
   {col:'proveedor',src:'contratista'},{col:'moneda',src:'fijo',fijo:'MXN'},{col:'costo_estimado',src:'estimado'},{col:'costo_real',src:'contratado'},
@@ -1892,7 +1892,7 @@ function plRows(){
   return list.map(s=>p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;try{return String(src.f(s,c)??'')}catch(e){return ''}}));
 }
 function plCSV(){const p=PL(),q=v=>'"'+String(v).replace(/"/g,'""')+'"';
-  return (p.bom?'﻿':'')+[p.cols.map(c=>q(c.col)),...plRows().map(r=>r.map(q))].map(r=>r.join(',')).join('\r\n')+'\r\n'}
+  return (p.sinBom?'':'\uFEFF')+[p.cols.map(c=>q(c.col)),...plRows().map(r=>r.map(q))].map(r=>r.join(',')).join('\r\n')+'\r\n'}
 function exportPlantilla(){const p=PL();const n=plRows().length;if(!n){toast('No hay solicitudes con ese filtro');return}
   download(`${p.nombre||'plantilla'}_${todayStr()}.csv`,plCSV(),'text/csv;charset=utf-8')}
 function plCard(){const p=PL();
@@ -1907,7 +1907,7 @@ function plCard(){const p=PL();
     <div class="row" style="gap:10px;flex-wrap:wrap;margin:10px 0">
      <label class="f"><span class="muted" style="font-size:13px">Nombre del archivo</span><input id="plN" value="${esc(p.nombre)}"></label>
      <label class="f"><span class="muted" style="font-size:13px">Formato de fechas</span><select id="plD"><option value="iso"${p.fecha==='iso'?' selected':''}>aaaa-mm-dd</option><option value="dmy"${p.fecha==='dmy'?' selected':''}>dd/mm/aaaa</option></select></label>
-     <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin-top:18px"><input type="checkbox" id="plB"${p.bom?' checked':''}> Compatible con acentos en Excel (BOM)</label></div>
+     <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin-top:18px" title="Por omisión el archivo lleva una marca UTF-8 para que Excel lea bien acentos y ñ. Márcalo solo si el sistema que recibe el CSV la rechaza."><input type="checkbox" id="plB"${p.sinBom?' checked':''}> Sin marca UTF-8 (solo si el sistema destino lo pide)</label></div>
     <div class="tablewrap"><table class="pl-t"><thead><tr><th>Columna de la plantilla</th><th>Dato de la app</th><th>Valor fijo</th><th></th></tr></thead><tbody>
      ${p.cols.map((c,i)=>`<tr><td><input data-pc="${i}" value="${esc(c.col)}"></td><td><select data-ps="${i}">${opts(c.src)}</select></td><td><input data-pf="${i}" value="${esc(c.fijo||'')}" ${c.src==='fijo'?'':'disabled'} placeholder="—"></td><td><button class="icon-btn" data-pu="${i}" title="Subir">↑</button> <button class="icon-btn" data-pd="${i}" title="Quitar">✕</button></td></tr>`).join('')}
     </tbody></table></div>
@@ -1922,7 +1922,7 @@ function plCard(){const p=PL();
 function plBind(){
   if(!$('#plX'))return;const p=PL();
   const collect=()=>{$$('[data-pc]').forEach(x=>p.cols[+x.dataset.pc].col=x.value.trim());$$('[data-ps]').forEach(x=>p.cols[+x.dataset.ps].src=x.value);
-    $$('[data-pf]').forEach(x=>p.cols[+x.dataset.pf].fijo=x.value);p.nombre=($('#plN').value.trim()||'plantilla');p.fecha=$('#plD').value;p.bom=$('#plB').checked;
+    $$('[data-pf]').forEach(x=>p.cols[+x.dataset.pf].fijo=x.value);p.nombre=($('#plN').value.trim()||'plantilla');p.fecha=$('#plD').value;p.sinBom=$('#plB').checked;delete p.bom;
     const ags=cat('agencias');$$('[data-ai]').forEach(x=>{const a=ags[+x.dataset.ai];const v=x.value.trim();if(v)a.inmueble_id=v;else delete a.inmueble_id})};
   const keepOpen=()=>{renderIO();const d=$('.pl-cfg');if(d)d.open=true};
   $('#plF').onchange=e=>{p.filtro=e.target.value;if(!CLOUD.readonly)save()};
