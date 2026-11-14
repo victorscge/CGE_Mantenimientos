@@ -1934,7 +1934,7 @@ const PL_SRC={
   aceptada_tf:{t:'Resolución aceptada (true/false)',f:s=>s.aceptada?'true':'false'},
   archivado:{t:'Archivado (Sí/No)',f:s=>archOf(s)?'Sí':'No'},
 };
-const PL_DEF={v:3,nombre:'plantilla-mantenimiento',filtro:'todas',fecha:'iso',sinBom:false,cols:[
+const PL_DEF={v:3,nombre:'plantilla-mantenimiento',filtro:'abiertas',fecha:'iso',sinBom:false,cols:[
   {col:'titulo',src:'descripcion'},{col:'inmueble_id',src:'inmueble_id'},{col:'equipo_id',src:'equipo'},{col:'negocio',src:'ag_tipo'},
   {col:'tipo',src:'tipoMant'},{col:'prioridad',src:'prioridad'},{col:'fecha_limite',src:'fechaLim'},{col:'responsable',src:'responsable'},
   {col:'proveedor',src:'contratista'},{col:'moneda',src:'moneda'},{col:'costo_estimado',src:'estimado'},{col:'costo_real',src:'contratado'},
@@ -1947,8 +1947,8 @@ function plDate(d){if(!d)return '';const f=PL().fecha;const [y,m,dd]=String(d).s
 function plNum(n){return (n===null||n===undefined||n==='')?'':String(Math.round(+n*100)/100)}
 function plRows(){
   const p=PL(),g=s=>{const e=cat('estados').find(x=>x.nombre===s.estado);return (e||{}).grupo||'proceso'};
-  const list=DB.solicitudes.filter(s=>p.filtro==='todas'||(p.filtro==='activos'?!archOf(s):p.filtro==='archivados'?archOf(s):g(s)===p.filtro)).slice().sort((a,b)=>String(a.folio).localeCompare(String(b.folio),'es',{numeric:true}));
-  return list.map(s=>p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;try{return String(src.f(s,c)??'')}catch(e){return ''}}));
+  const list=DB.solicitudes.filter(s=>p.filtro==='todas'||(p.filtro==='abiertas'?estSis(s)!=='Resuelto':p.filtro==='activos'?!archOf(s):p.filtro==='archivados'?archOf(s):g(s)===p.filtro)).slice().sort((a,b)=>String(a.folio).localeCompare(String(b.folio),'es',{numeric:true}));
+  return list.map(s=>p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;let v;try{v=String(src.f(s,c)??'')}catch(e){v=''}if(p.resComoProceso&&c.src==='estado_sis'&&v==='Resuelto')v='En proceso';return v}));
 }
 const PL_REQ={titulo:'Descripción',inmueble_id:'Inmueble',tipo:'Tipo',prioridad:'Prioridad',fecha_limite:'Fecha límite',moneda:'Moneda',estado:'Estado'};
 const PL_OK={negocio:TIPOS,tipo:MANT_TIPOS,prioridad:PRIORIDADES,moneda:MONEDAS,estado:EST_SIS,aceptacion:['Sí','No','true','false']};
@@ -1967,7 +1967,7 @@ function plCard(){const p=PL();
   return `<div class="fs pl-card"><h3><span class="io-num">3</span>Exportar según plantilla</h3>
    <p class="note io-desc">Genera el CSV con las columnas exactas de la plantilla <b>${esc(p.nombre)}</b> (${p.cols.length} columnas), tomando cada dato de la app según la configuración. No cambia nada de tus datos.</p>
    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end;margin:6px 0 10px">
-    <label class="f" style="min-width:180px"><span class="muted" style="font-size:13px">Solicitudes</span><select id="plF">${[['todas','Todas'],['activos','Activos'],['archivados','Archivados'],['proceso','En proceso'],['concluida','Concluidas'],['cancelada','Canceladas']].map(([v,t])=>`<option value="${v}"${p.filtro===v?' selected':''}>${t}</option>`).join('')}</select></label>
+    <label class="f" style="min-width:180px"><span class="muted" style="font-size:13px">Solicitudes</span><select id="plF">${[['abiertas','Solo no resueltas (Abierto / En proceso)'],['todas','Todas'],['activos','Activos'],['archivados','Archivados'],['proceso','En proceso'],['concluida','Concluidas'],['cancelada','Canceladas']].map(([v,t])=>`<option value="${v}"${p.filtro===v?' selected':''}>${t}</option>`).join('')}</select></label>
     <button class="btn primary" id="plX">Exportar CSV de plantilla</button><button class="btn" id="plV">Vista previa</button></div>
    <details class="pl-cfg"><summary>Configurar columnas y formato</summary>
     <div class="row" style="gap:10px;flex-wrap:wrap;margin:10px 0">
@@ -1978,7 +1978,8 @@ function plCard(){const p=PL();
      ${p.cols.map((c,i)=>`<tr><td><input data-pc="${i}" value="${esc(c.col)}"></td><td><select data-ps="${i}">${opts(c.src)}</select></td><td><input data-pf="${i}" value="${esc(c.fijo||'')}" ${c.src==='fijo'?'':'disabled'} placeholder="—"></td><td><button class="icon-btn" data-pu="${i}" title="Subir">↑</button> <button class="icon-btn" data-pd="${i}" title="Quitar">✕</button></td></tr>`).join('')}
     </tbody></table></div>
     <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="plA">+ Agregar columna</button><button class="btn" id="plS">Guardar configuración</button><button class="btn" id="plR">Restablecer plantilla original</button></div>
-    <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin:12px 0 0"><input type="checkbox" id="plT"${p.todas?' checked':''}> Exportar también las filas incompletas (el sistema las rechazará)</label>
+    <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin:12px 0 0" title="El sistema solo deja resolver con aceptación y evidencia adjunta; así entran como «En proceso» y se cierran allá después de adjuntar la evidencia."><input type="checkbox" id="plP"${p.resComoProceso?' checked':''}> Exportar las resueltas como «En proceso» (para cerrarlas en el sistema con su evidencia)</label>
+    <label class="f" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0 0"><input type="checkbox" id="plT"${p.todas?' checked':''}> Exportar también las filas incompletas (el sistema las rechazará)</label>
     <h4 style="margin:16px 0 6px">Inmueble del sistema por agencia <small class="muted">(${sinId} sin inmueble)</small></h4>
     <p class="note" style="margin:0 0 8px">Elige a qué inmueble del sistema corresponde cada agencia. Se exporta su ID en «inmueble_id» y se usan su ciudad y negocio. Si un inmueble no existe en el sistema, hay que darlo de alta allá primero.</p>
     <div class="tablewrap" style="max-height:320px;overflow:auto"><table class="pl-t"><thead><tr><th>Agencia (app)</th><th>Solicitudes</th><th>Inmueble del sistema</th></tr></thead><tbody>
@@ -1990,7 +1991,7 @@ function plBind(){
   if(!$('#plX'))return;const p=PL();
   const collect=()=>{$$('[data-pc]').forEach(x=>p.cols[+x.dataset.pc].col=x.value.trim());$$('[data-ps]').forEach(x=>p.cols[+x.dataset.ps].src=x.value);
     $$('[data-pf]').forEach(x=>p.cols[+x.dataset.pf].fijo=x.value);p.nombre=($('#plN').value.trim()||'plantilla');p.fecha=$('#plD').value;p.sinBom=$('#plB').checked;delete p.bom;
-    p.todas=$('#plT').checked;const ags=cat('agencias');$$('[data-ai]').forEach(x=>{const a=ags[+x.dataset.ai];const v=x.value;if(v===(a.inmueble_id||''))return;const i=INMS().find(y=>y.id===v);if(i)inmApply(a,i);else{delete a.inmueble_id;delete a.inmueble_codigo;delete a.inmueble_nombre;a.inmSinMapa=true}})};
+    p.todas=$('#plT').checked;p.resComoProceso=$('#plP').checked;const ags=cat('agencias');$$('[data-ai]').forEach(x=>{const a=ags[+x.dataset.ai];const v=x.value;if(v===(a.inmueble_id||''))return;const i=INMS().find(y=>y.id===v);if(i)inmApply(a,i);else{delete a.inmueble_id;delete a.inmueble_codigo;delete a.inmueble_nombre;a.inmSinMapa=true}})};
   const keepOpen=()=>{renderIO();const d=$('.pl-cfg');if(d)d.open=true};
   $('#plF').onchange=e=>{p.filtro=e.target.value;if(!CLOUD.readonly)save()};
   $('#plX').onclick=()=>{if($('.pl-cfg').open)collect();exportPlantilla()};
