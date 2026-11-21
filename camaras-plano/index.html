@@ -4,6 +4,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;display:flex;flex-direction:column;height:100vh;background:#e9ecef;color:#222}
 #bar{display:flex;flex-direction:column;gap:6px;padding:8px;background:#1f2937}#bar .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -72,6 +73,9 @@ button:hover,label.b:hover{background:#4b5563}button.on{background:#2563eb}
 #plist{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
 .pc{background:#fff;border:2px solid #e1e5ea;border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:4px;min-width:0}
 .pc:hover{border-color:#93b4f8}.pc.cur{border-color:#2563eb}
+#selbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px;background:#ecfdf5;border-bottom:1px solid #a7f3d0;font-size:13px}#selbar span{flex:1;font-weight:600;color:#065f46;min-width:180px}
+.pc.pick{position:relative}.pc.pick .pa{display:none}.pc.pick.on{border-color:#16a34a;background:#f0fdf4}
+.pc .ck2{position:absolute;top:14px;left:14px;width:24px;height:24px;border-radius:6px;border:2px solid #9ca3af;background:#fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;z-index:1}.pc.on .ck2{background:#16a34a;border-color:#16a34a}
 .pc .th{height:130px;background:#eef0f3;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:12px;overflow:hidden}.pc .th img{max-width:100%;max-height:100%}
 .pc .pn{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc .pi{font-size:12px;color:#6b7280}
 .pc .pa{display:flex;gap:6px;margin-top:2px}.pc .pa button{background:#eef1f5;color:#374151;font-size:12px;padding:4px 8px}.pc .pa button:hover{background:#dfe5ee}.pc .pa button[data-a=del]:hover{background:#fee2e2;color:#b91c1c}
@@ -164,7 +168,7 @@ button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#3741
 </div></details>
 <details class="card"><summary>Ayuda</summary><ul class="help"><li>Arrastra un elemento para moverlo; el punto azul gira la cámara.</li><li>Selecciona un muro para mover sus extremos o arrastra su rombo central para curvarlo.</li><li>Ctrl+Z deshace y Ctrl+Y rehace.</li><li>Arrastra el fondo para mover el plano; rueda = zoom. Supr borra lo seleccionado.</li><li>Clic derecho sobre el plano, un elemento o un muro abre más opciones.</li><li>Los radios de detectores y extintores son de referencia (NOM-002-STPS-2010); la cobertura limitada por muros no cuenta rodeos, por eso es conservadora.</li></ul></details>
 </div></div>
-<div id="pm" hidden><div class="pmb"><header><b>Mis proyectos</b><button id="pnew" style="background:#2563eb">+ Nuevo proyecto</button><button id="pclose">Cerrar</button></header><div id="plist"></div><footer><span>Todo se guarda solo en este navegador, no tienes que exportar nada.</span><span class="bk"><button id="save" title="Descarga solo el proyecto abierto">Respaldar este proyecto</button><button id="saveall" style="background:#16a34a" title="Descarga un solo archivo con todos tus proyectos">Respaldar todos</button><label class="b" title="Abre uno o varios respaldos (de un proyecto o de todos)">Importar respaldo(s)<input id="load" type="file" accept=".json,application/json" multiple hidden></label></span></footer></div></div>
+<div id="pm" hidden><div class="pmb"><header><b>Mis proyectos</b><button id="pzip" style="background:#16a34a" title="Elige proyectos y descárgalos en PDF dentro de un ZIP">Exportar PDFs (ZIP)</button><button id="pnew" style="background:#2563eb">+ Nuevo proyecto</button><button id="pclose">Cerrar</button></header><div id="selbar" hidden><span id="selcount"></span><button id="selall">Todos</button><button id="selnone">Ninguno</button><button id="selgo" style="background:#16a34a">Exportar ZIP</button><button id="selcancel">Cancelar</button></div><div id="plist"></div><footer><span>Todo se guarda solo en este navegador, no tienes que exportar nada.</span><span class="bk"><button id="save" title="Descarga solo el proyecto abierto">Respaldar este proyecto</button><button id="saveall" style="background:#16a34a" title="Descarga un solo archivo con todos tus proyectos">Respaldar todos</button><label class="b" title="Abre uno o varios respaldos (de un proyecto o de todos)">Importar respaldo(s)<input id="load" type="file" accept=".json,application/json" multiple hidden></label></span></footer></div></div>
 <div id="drop" hidden><div>Suelta el PDF o la imagen para insertarlo</div></div>
 <div id="busy" hidden><div id="busyt">Procesando plano…</div></div>
 <div id="ctx" hidden></div><div id="cb" hidden><span>Arrastra para elegir el área</span><button id="ca">Aplicar recorte</button><button id="cc">Cancelar</button></div><div id="nm" hidden><div><b>Notas de mejoras futuras</b><textarea id="nt" placeholder="Escribe aquí las mejoras que quieres hacerle a la app…"></textarea><button id="nc">Cerrar</button></div></div>
@@ -354,17 +358,44 @@ addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragN
 addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
 addEventListener('dragleave',e=>{if(!hasFiles(e))return;if(--dragN<=0){dragN=0;$('drop').hidden=true}});
 addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();dragN=0;$('drop').hidden=true;const f=e.dataTransfer.files[0];if(f){closePM();importFile(f)}});
-$('pdf').onclick=async()=>{stash();if(!levels.some(L=>L.bg))return alert('Primero importa un plano.');
+// genera el PDF del proyecto cargado; devuelve {fn, bytes} o {err}
+async function makeReport(){stash();if(!levels.some(L=>L.bg))return{err:'no tiene plano'};
 const name=($('pname').value||'').trim()||'Proyecto sin nombre',{jsPDF}=window.jspdf,dims=$('fmt').value=='tabloide'?[279.4,431.8]:[215.9,279.4],
 [w,h]=$('ori').value=='v'?dims:[dims[1],dims[0]],pdf=new jsPDF({unit:'mm',format:[w,h],orientation:w>h?'l':'p'});
 const ex=$('exp').value,F=new Set(ex=='cam'?['cam']:ex=='fire'?['smoke','ext']:ex=='vis'?['cam','smoke','ext'].filter(t=>SHOW[t]!==false):['cam','smoke','ext']),has=t=>F.has(t)&&levels.some(L=>L.cams.some(c=>typ(c)==t)),hC=has('cam'),hF=has('smoke')||has('ext');
-if(!F.size)return alert('No hay capas seleccionadas para exportar.');
-const fn=name.replace(/[\\/:*?"<>|]+/g,'-')+(hC&&hF?' - Cobertura de seguridad':hF||ex=='fire'?' - Protección contra incendio':' - CCTV')+'.pdf';setBusy(true,'Generando PDF…');
+if(!F.size)return{err:'no tiene capas seleccionadas para exportar'};
+const fn=name.replace(/[\\/:*?"<>|]+/g,'-')+(hC&&hF?' - Cobertura de seguridad':hF||ex=='fire'?' - Protección contra incendio':' - CCTV')+'.pdf';
 try{VEC=[];await buildReport(pdf,name,w,h,!!window.PDFLib,F);
-if(VEC.length){try{dlBytes(await vectorize(pdf.output('arraybuffer'),VEC),fn);return}catch(err){console.warn(err);
-const p2=new jsPDF({unit:'mm',format:[w,h],orientation:w>h?'l':'p'});VEC=[];await buildReport(p2,name,w,h,false,F);p2.save(fn);
-alert('El plano no se pudo incrustar como vector (el PDF original puede estar protegido); se exportó como imagen de alta resolución.');return}}
-pdf.save(fn)}catch(err){alert('No se pudo generar el PDF: '+err.message)}finally{NUMS=null;SHOWX=null;setBusy(false)}};
+if(VEC.length){try{return{fn,bytes:await vectorize(pdf.output('arraybuffer'),VEC)}}catch(err){console.warn(err);
+const p2=new jsPDF({unit:'mm',format:[w,h],orientation:w>h?'l':'p'});VEC=[];await buildReport(p2,name,w,h,false,F);return{fn,bytes:p2.output('arraybuffer'),warn:1}}}
+return{fn,bytes:pdf.output('arraybuffer')}}finally{NUMS=null;SHOWX=null}}
+$('pdf').onclick=async()=>{stash();if(!levels.some(L=>L.bg))return alert('Primero importa un plano.');setBusy(true,'Generando PDF…');
+try{const r=await makeReport();if(r.err)return alert('No se puede exportar: el proyecto '+r.err+'.');dlBytes(r.bytes,r.fn);
+if(r.warn)alert('El plano no se pudo incrustar como vector (el PDF original puede estar protegido); se exportó como imagen de alta resolución.')}
+catch(err){alert('No se pudo generar el PDF: '+err.message)}finally{setBusy(false)}};
+// ---- exportar varios proyectos en PDF dentro de un ZIP ----
+let PMSEL=null,PMALL=[];
+function selCount(){$('selcount').textContent=PMSEL.size+' de '+PMALL.length+' proyecto'+(PMALL.length==1?'':'s')+' seleccionado'+(PMSEL.size==1?'':'s')+' · cada uno con su hoja, orientación y capas guardadas';$('selgo').disabled=!PMSEL.size}
+function selMode(on){PMSEL=on?new Set():null;$('pzip').hidden=!!on;$('pnew').hidden=!!on;$('selbar').hidden=!on;renderPM()}
+$('pzip').onclick=()=>selMode(true);$('selcancel').onclick=()=>selMode(false);
+$('selall').onclick=()=>{PMALL.forEach(i=>PMSEL.add(i));renderPM()};$('selnone').onclick=()=>{PMSEL.clear();renderPM()};
+$('selgo').onclick=()=>exportZip([...PMSEL]);
+function dlBlob(blob,fn){const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
+async function exportZip(ids){if(!ids.length)return alert('Selecciona al menos un proyecto.');if(!window.JSZip)return alert('No se pudo cargar el compresor ZIP. Revisa tu conexión a internet y recarga la página.');
+setBusy(true,'Preparando…');clearTimeout(tm);await persist(true);stash();
+const S0={levels,lv,NUMC:{...NUMC},SHOW:{...SHOW},nm:$('pname').value,fmt:$('fmt').value,ori:$('ori').value,exp:$('exp').value,view:{...view},sig:lastSig,id:curId};
+restored=false;const zip=new JSZip(),used=new Set(),skip=[],warn=[];let n=0;
+try{for(const id of ids){const r=await idbGet('proj:'+id);if(!r)continue;const nm=r.nm||'Sin nombre';setBusy(true,'Generando PDF '+(++n)+' de '+ids.length+': '+nm);
+if(id===S0.id){levels=S0.levels;NUMC={...S0.NUMC};SHOW={...S0.SHOW};$('pname').value=S0.nm;$('fmt').value=S0.fmt;$('ori').value=S0.ori;$('exp').value=S0.exp;unstash(S0.lv)}else await applyRec(r);
+let o;try{o=await makeReport()}catch(err){o={err:'falló ('+err.message+')'}}
+if(o.err){skip.push(nm+' ('+o.err+')');continue}if(o.warn)warn.push(nm);
+let fn=o.fn,k=2;while(used.has(fn.toLowerCase()))fn=o.fn.replace(/\.pdf$/i,' ('+(k++)+').pdf');used.add(fn.toLowerCase());zip.file(fn,o.bytes)}
+if(!used.size)return alert('No se generó ningún PDF.'+(skip.length?'\n'+skip.join('\n'):''));
+setBusy(true,'Comprimiendo ZIP…');const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}}),d=new Date();
+dlBlob(blob,'Camaras en Plano - '+used.size+' PDF'+(used.size==1?'':'s')+' '+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.zip');
+if(skip.length||warn.length)alert('ZIP listo con '+used.size+' PDF'+(used.size==1?'':'s')+'.'+(skip.length?'\n\nNo se incluyeron:\n'+skip.join('\n'):'')+(warn.length?'\n\nExportados como imagen (no se pudo incrustar el vector): '+warn.join(', '):''))}
+catch(err){alert('No se pudo generar el ZIP: '+err.message)}
+finally{levels=S0.levels;NUMC=S0.NUMC;numUI();SHOW=S0.SHOW;layUI();$('pname').value=S0.nm;$('fmt').value=S0.fmt;$('ori').value=S0.ori;$('exp').value=S0.exp;upTitle();unstash(S0.lv);view=S0.view;lastSig=S0.sig;restored=true;setBusy(false);selMode(false);draw()}}
 const b2u=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(b)});
 $('save').onclick=async()=>{stash();const lv2=[];for(const L of levels)lv2.push({nm:L.nm,bg:L.bg&&L.bg.toDataURL('image/png'),cams:L.cams,walls:L.walls,sc:L.sc,src:L.src?{...L.src,blob:await b2u(L.src.blob)}:null});
 const d=JSON.stringify({nm:$('pname').value,fmt:$('fmt').value,ori:$('ori').value,notas:$('nt').value,num:NUMC,vis:SHOW,exp:$('exp').value,lv,levels:lv2}),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d],{type:'application/json'}));a.download=(($('pname').value||'Proyecto').trim().replace(/[\\/:*?"<>|]+/g,'-'))+' - respaldo.json';a.click()};
@@ -493,15 +524,16 @@ if(rest.length){curId=rest[0].id;await applyRec(rest[0]);await idbPut('meta',{cu
 else{await idbDel('proj:'+id);renderPM()}}
 function fmtT(t){const m=Math.round((Date.now()-t)/60000);if(m<1)return'ahora';if(m<60)return'hace '+m+' min';const d=new Date(t);return d.toLocaleDateString('es-MX',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}
 const PM=$('pm');
-function closePM(){PM.hidden=true}
+function closePM(){PM.hidden=true;if(PMSEL){PMSEL=null;$('selbar').hidden=true;$('pzip').hidden=false;$('pnew').hidden=false}}
 async function openPM(){await persist(true);PM.hidden=false;renderPM()}
-async function renderPM(){const all=(await idbProjects()).sort((a,b)=>b.t-a.t),L=$('plist');L.innerHTML='';
-all.forEach(p=>{const d=document.createElement('div');d.className='pc'+(p.id==curId?' cur':'');
+async function renderPM(){const all=(await idbProjects()).sort((a,b)=>b.t-a.t),L=$('plist');L.innerHTML='';PMALL=all.map(p=>p.id);if(PMSEL){[...PMSEL].forEach(i=>{if(!PMALL.includes(i))PMSEL.delete(i)});selCount()}
+all.forEach(p=>{const d=document.createElement('div');d.className='pc'+(p.id==curId?' cur':'')+(PMSEL?' pick'+(PMSEL.has(p.id)?' on':''):'');
 d.innerHTML='<div class="th"></div><div class="pn"></div><div class="pi"></div><div class="pa"><button data-a="dup">Duplicar</button><button data-a="del">Eliminar</button></div>';
 const th=d.querySelector('.th');if(p.thumb){const im=document.createElement('img');im.src=p.thumb;th.appendChild(im)}else th.textContent='Sin plano';
 d.querySelector('.pn').textContent=(p.nm||'Sin nombre')+(p.id==curId?'  ·  abierto':'');
 d.querySelector('.pi').textContent=(p.n||0)+' cámara'+(p.n==1?'':'s')+(p.nd?' · '+p.nd+' equipo'+(p.nd==1?'':'s'):'')+((p.np||1)>1?' · '+p.np+' plantas':'')+' · '+fmtT(p.t);
-d.onclick=e=>{const a=e.target.dataset&&e.target.dataset.a;if(a=='dup')dupProj(p.id);else if(a=='del')delProj(p.id);else openProj(p.id)};L.appendChild(d)})}
+if(PMSEL)d.insertAdjacentHTML('afterbegin','<span class="ck2">✓</span>');
+d.onclick=e=>{if(PMSEL){if(PMSEL.has(p.id))PMSEL.delete(p.id);else PMSEL.add(p.id);d.classList.toggle('on',PMSEL.has(p.id));selCount();return}const a=e.target.dataset&&e.target.dataset.a;if(a=='dup')dupProj(p.id);else if(a=='del')delProj(p.id);else openProj(p.id)};L.appendChild(d)})}
 $('projbtn').onclick=openPM;$('pnew').onclick=newProj;$('pclose').onclick=closePM;PM.onclick=e=>{if(e.target==PM)closePM()};
 let VEC=[];
 function dlBytes(bytes,fn){const a=document.createElement('a'),u=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
