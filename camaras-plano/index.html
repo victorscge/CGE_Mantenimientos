@@ -76,7 +76,7 @@ button:hover,label.b:hover{background:#4b5563}button.on{background:#2563eb}
 .pc .pn{font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc .pi{font-size:12px;color:#6b7280}
 .pc .pa{display:flex;gap:6px;margin-top:2px}.pc .pa button{background:#eef1f5;color:#374151;font-size:12px;padding:4px 8px}.pc .pa button:hover{background:#dfe5ee}.pc .pa button[data-a=del]:hover{background:#fee2e2;color:#b91c1c}
 .pmb footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;padding:10px 14px;background:#fff;border-top:1px solid #dde1e7;font-size:12px;color:#6b7280}
-.pmb footer .bk{display:flex;gap:6px}.pmb footer button,.pmb footer label.b{font-size:12px;padding:5px 9px}
+.pmb footer .bk{display:flex;gap:6px;flex-wrap:wrap}.pmb footer button,.pmb footer label.b{font-size:12px;padding:5px 9px}
 #lvbar{position:absolute;top:8px;left:8px;display:flex;gap:4px;flex-wrap:wrap;max-width:calc(100% - 16px);z-index:5}
 #lvbar .lt{background:#fff;color:#374151;border:1px solid #cfd5dd;box-shadow:0 1px 3px #0002;padding:6px 12px;font-size:13px;font-weight:600}
 #lvbar .lt:hover{background:#f1f4f8}#lvbar .lt.on{background:#2563eb;color:#fff;border-color:#2563eb}
@@ -164,7 +164,7 @@ button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#3741
 </div></details>
 <details class="card"><summary>Ayuda</summary><ul class="help"><li>Arrastra un elemento para moverlo; el punto azul gira la cámara.</li><li>Selecciona un muro para mover sus extremos o arrastra su rombo central para curvarlo.</li><li>Ctrl+Z deshace y Ctrl+Y rehace.</li><li>Arrastra el fondo para mover el plano; rueda = zoom. Supr borra lo seleccionado.</li><li>Clic derecho sobre el plano, un elemento o un muro abre más opciones.</li><li>Los radios de detectores y extintores son de referencia (NOM-002-STPS-2010); la cobertura limitada por muros no cuenta rodeos, por eso es conservadora.</li></ul></details>
 </div></div>
-<div id="pm" hidden><div class="pmb"><header><b>Mis proyectos</b><button id="pnew" style="background:#2563eb">+ Nuevo proyecto</button><button id="pclose">Cerrar</button></header><div id="plist"></div><footer><span>Todo se guarda solo en este navegador, no tienes que exportar nada.</span><span class="bk"><button id="save">Descargar respaldo</button><label class="b">Abrir respaldo<input id="load" type="file" accept=".json" hidden></label></span></footer></div></div>
+<div id="pm" hidden><div class="pmb"><header><b>Mis proyectos</b><button id="pnew" style="background:#2563eb">+ Nuevo proyecto</button><button id="pclose">Cerrar</button></header><div id="plist"></div><footer><span>Todo se guarda solo en este navegador, no tienes que exportar nada.</span><span class="bk"><button id="save" title="Descarga solo el proyecto abierto">Respaldar este proyecto</button><button id="saveall" style="background:#16a34a" title="Descarga un solo archivo con todos tus proyectos">Respaldar todos</button><label class="b" title="Abre uno o varios respaldos (de un proyecto o de todos)">Importar respaldo(s)<input id="load" type="file" accept=".json,application/json" multiple hidden></label></span></footer></div></div>
 <div id="drop" hidden><div>Suelta el PDF o la imagen para insertarlo</div></div>
 <div id="busy" hidden><div id="busyt">Procesando plano…</div></div>
 <div id="ctx" hidden></div><div id="cb" hidden><span>Arrastra para elegir el área</span><button id="ca">Aplicar recorte</button><button id="cc">Cancelar</button></div><div id="nm" hidden><div><b>Notas de mejoras futuras</b><textarea id="nt" placeholder="Escribe aquí las mejoras que quieres hacerle a la app…"></textarea><button id="nc">Cerrar</button></div></div>
@@ -368,13 +368,40 @@ pdf.save(fn)}catch(err){alert('No se pudo generar el PDF: '+err.message)}finally
 const b2u=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(b)});
 $('save').onclick=async()=>{stash();const lv2=[];for(const L of levels)lv2.push({nm:L.nm,bg:L.bg&&L.bg.toDataURL('image/png'),cams:L.cams,walls:L.walls,sc:L.sc,src:L.src?{...L.src,blob:await b2u(L.src.blob)}:null});
 const d=JSON.stringify({nm:$('pname').value,fmt:$('fmt').value,ori:$('ori').value,notas:$('nt').value,num:NUMC,vis:SHOW,exp:$('exp').value,lv,levels:lv2}),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([d],{type:'application/json'}));a.download=(($('pname').value||'Proyecto').trim().replace(/[\\/:*?"<>|]+/g,'-'))+' - respaldo.json';a.click()};
-$('load').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
-try{const d=JSON.parse(await f.text());restored=false;clearTimeout(tm);await persist(true);
-const nm=(d.nm&&d.nm.trim())||f.name.replace(/\.json$/i,''),src=d.levels||[{nm:'Planta baja',bg:d.bg,cams:d.cams,walls:d.walls,sc:d.sc}],lvls=[];
-for(const L of src)lvls.push({nm:L.nm||'Planta',bg:L.bg?await (await fetch(L.bg)).blob():null,cams:L.cams,walls:L.walls,sc:L.sc,src:L.src?{...L.src,blob:await (await fetch(L.src.blob)).blob()}:null});
-curId=uid();await applyRec({levels:lvls,lv:d.lv||0,nm,fmt:d.fmt,ori:d.ori,num:d.num,vis:d.vis,exp:d.exp});lastSig=null;restored=true;
-if(d.notas&&!NT.value){NT.value=d.notas;saveNotes()}await persist(true);draw();closePM()}
-catch(err){restored=true;alert('No se pudo abrir el respaldo: '+err.message)}};
+// ---- respaldos: un proyecto o todos (los Blob se guardan como data URL) ----
+async function packBlobs(o){if(o instanceof Blob)return{__blob:await b2u(o)};if(Array.isArray(o)){const r=[];for(const x of o)r.push(await packBlobs(x));return r}
+if(o&&typeof o=='object'){const r={};for(const k in o)r[k]=await packBlobs(o[k]);return r}return o}
+async function unpackBlobs(o){if(o&&typeof o=='object'&&!Array.isArray(o)&&typeof o.__blob=='string')return await (await fetch(o.__blob)).blob();
+if(Array.isArray(o)){const r=[];for(const x of o)r.push(await unpackBlobs(x));return r}if(o&&typeof o=='object'){const r={};for(const k in o)r[k]=await unpackBlobs(o[k]);return r}return o}
+const fileName=t=>t.trim().replace(/[\\/:*?"<>|]+/g,'-');
+$('saveall').onclick=async()=>{if(!idb)return alert('El almacenamiento del navegador no está disponible.');setBusy(true,'Preparando respaldo…');
+try{await persist(true);const all=await idbProjects();if(!all.length)return alert('No hay proyectos que respaldar.');const projects=[];for(const r of all)projects.push(await packBlobs(r));
+const d=new Date(),fecha=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),
+txt=JSON.stringify({app:'camaras-plano',tipo:'todos',version:1,fecha:d.toISOString(),notas:$('nt').value,projects}),a=document.createElement('a');
+a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download='Camaras en Plano - todos los proyectos '+fecha+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000)}
+catch(err){alert('No se pudo crear el respaldo: '+err.message)}finally{setBusy(false)}};
+// respaldo de un solo proyecto (formato de "Respaldar este proyecto") → registro de la base
+async function singleToRec(d,fname){const src=d.levels||[{nm:'Planta baja',bg:d.bg,cams:d.cams,walls:d.walls,sc:d.sc}],lvls=[];
+for(const L of src)lvls.push({nm:L.nm||'Planta',bg:L.bg?await (await fetch(L.bg)).blob():null,cams:L.cams||[],walls:L.walls||[],sc:L.sc||20,src:L.src?{...L.src,blob:await (await fetch(L.src.blob)).blob()}:null});
+const all=lvls.flatMap(L=>L.cams);return{id:uid(),nm:(d.nm&&d.nm.trim())||fname.replace(/\.json$/i,''),levels:lvls,lv:d.lv||0,fmt:d.fmt,ori:d.ori,num:d.num,vis:d.vis,exp:d.exp,t:Date.now(),
+n:all.filter(c=>typ(c)=='cam').length,nd:all.filter(c=>typ(c)!='cam').length,np:lvls.length,thumb:null}}
+$('load').onchange=async e=>{const files=[...e.target.files];e.target.value='';if(!files.length)return;if(!idb)return alert('El almacenamiento del navegador no está disponible.');
+setBusy(true,'Importando respaldo…');let recs=[],notas='',bad=[];
+try{await persist(true);
+for(const f of files){try{const d=JSON.parse(await f.text());
+if(Array.isArray(d.projects)){for(const p of d.projects){const r=await unpackBlobs(p);if(r&&r.id&&(r.levels||r.bg||r.cams))recs.push(r)}if(d.notas)notas=d.notas}
+else if(d.levels||d.cams||d.bg){recs.push(await singleToRec(d,f.name));if(d.notas)notas=notas||d.notas}else bad.push(f.name)}catch(err){bad.push(f.name)}}
+if(!recs.length){setBusy(false);return alert('No se encontraron proyectos en '+(files.length>1?'esos archivos':'ese archivo')+'.')}
+const have=new Set((await idbProjects()).map(r=>r.id)),dup=recs.filter(r=>have.has(r.id));let replace=false;
+if(dup.length){setBusy(false);replace=confirm(dup.length+' de los '+recs.length+' proyectos del respaldo ya existen en este navegador ('+dup.slice(0,4).map(r=>'"'+(r.nm||'sin nombre')+'"').join(', ')+(dup.length>4?'…':'')+').\n\nAceptar = REEMPLAZARLOS con la versión del respaldo.\nCancelar = conservar los tuyos y agregar los del respaldo como copias.');setBusy(true,'Importando respaldo…')}
+let curHit=false,lastId=null;
+for(const r of recs){if(have.has(r.id)){if(replace){if(r.id==curId)curHit=true}else{r.id=uid();r.nm=(r.nm||'Proyecto')+' (respaldo)'}}delete r._h;await idbPut('proj:'+r.id,r);lastId=r.id}
+if(notas&&!NT.value){NT.value=notas;saveNotes()}
+if(curHit){restored=false;clearTimeout(tm);const r=await idbGet('proj:'+curId);await applyRec(r);restored=true;draw()}
+setBusy(false);
+if(recs.length==1&&files.length==1&&!curHit){await openProj(lastId);alert('Proyecto importado y abierto: '+(recs[0].nm||'sin nombre')+'.')}
+else{PM.hidden=false;await renderPM();alert('Se importaron '+recs.length+' proyecto'+(recs.length==1?'':'s')+(dup.length?(replace?' ('+dup.length+' reemplazado'+(dup.length==1?'':'s')+')':' ('+dup.length+' como copia'+(dup.length==1?'':'s')+')'):'')+'.'+(bad.length?'\nNo se pudieron leer: '+bad.join(', '):''))}}
+catch(err){restored=true;alert('No se pudo importar el respaldo: '+err.message)}finally{setBusy(false)}};
 const PAL=['#2563eb','#16a34a','#f97316','#9333ea','#e11d48','#0891b2','#ca8a04'];
 let cropStack=[];
 function xform(fp,dA){cams.forEach(c=>{[c.x,c.y]=fp(c.x,c.y);if(dA)c.ang=norm360(c.ang+dA)});walls=walls.map(w=>{const a=fp(w[0],w[1]),b=fp(w[2],w[3]);return w[4]?[...a,...b,w[4]]:[...a,...b]})}
