@@ -160,6 +160,7 @@ td.nowrap{white-space:nowrap}
 .g-late{position:absolute;top:13px;height:4px;background:var(--bad);border-radius:2px}
 .wk-tabs{display:flex;gap:6px;margin:10px 0}
 .okcell{color:var(--ok);font-weight:600}.badcell{color:var(--bad);font-weight:600}
+tr.sis-falta>td{background:color-mix(in srgb,var(--bad) 7%,transparent)}tr.sis-falta>td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.falta{display:block;margin-top:4px;color:var(--bad);font-weight:600;font-size:11px;line-height:1.3;white-space:normal;max-width:130px}.falta-f{color:var(--bad)}.fs-falta{border:1px solid var(--bad);border-radius:8px;padding:8px 10px;color:var(--bad);font-weight:600;background:color-mix(in srgb,var(--bad) 7%,transparent)}
 details summary{cursor:pointer}
 .cat-table input,.cat-table select{width:100%;min-width:110px;padding:5px 7px}
 .cat-table td{padding:4px 6px}
@@ -983,7 +984,7 @@ async function boot(){
 }
 
 /* ================= SEGUIMIENTO ================= */
-const F={q:'',estado:'',agencia:'',resp:'',tipo:'',ciudad:'',arch:'activos',grupo:'proceso',alertas:false,sort:'folio',dir:1};
+const F={q:'',estado:'',agencia:'',resp:'',tipo:'',ciudad:'',arch:'activos',grupo:'proceso',alertas:false,falta:false,sort:'folio',dir:1};
 function filtered(){
   const q=strip(F.q);
   return DB.solicitudes.filter(s=>{
@@ -995,6 +996,7 @@ function filtered(){
     if(F.ciudad&&(agencia(s.agencia)||{}).ciudad!==F.ciudad)return false;
     if(F.arch&&(F.arch==='archivados')!==archOf(s))return false;
     if(F.alertas&&!alertsOf(s).some(a=>a.sev!=='baja'))return false;
+    if(F.falta&&!sisIssues(s).length)return false;
     if(q){const hay=strip([s.folio,s.descripcion,s.agencia,s.solicitante,s.responsable,s.contratista,s.estado,(s.actividades||[]).map(a=>a.nombre).join(' ')].join(' '));if(!q.split(/\s+/).every(w=>hay.includes(w)))return false}
     return true;
   });
@@ -1022,6 +1024,7 @@ function renderSeg(){
     <select id="fx"><option value="activos"${F.arch==='activos'?' selected':''}>Activos</option><option value="archivados"${F.arch==='archivados'?' selected':''}>Archivados</option></select>
     <select id="fr">${opts(cat('responsables').map(r=>r.nombre),F.resp,'Todos los responsables')}</select>
     <label class="row" style="gap:5px"><input type="checkbox" id="fal" ${F.alertas?'checked':''}> Con alertas</label>
+    <label class="row falta-f" style="gap:5px" title="Solicitudes a las que les falta algún dato obligatorio del sistema de mantenimiento"><input type="checkbox" id="ffa" ${F.falta?'checked':''}> Faltan datos para el sistema <b>${all.filter(s=>sisIssues(s).length).length}</b></label>
     <button class="btn primary" id="toNew">+ Nueva solicitud</button>
   </div>
   <div id="segTable"></div>`;
@@ -1030,6 +1033,7 @@ function renderSeg(){
   [['fe','estado'],['fa','agencia'],['ft','tipo'],['fc','ciudad'],['fr','resp']].forEach(([id,k])=>$('#'+id).onchange=e=>{F[k]=e.target.value;drawTable()});
   $('#fx').onchange=e=>{F.arch=e.target.value;if(F.arch==='archivados')F.grupo='';renderSeg()};
   $('#fal').onchange=e=>{F.alertas=e.target.checked;drawTable()};
+  $('#ffa').onchange=e=>{F.falta=e.target.checked;drawTable()};
   $('#toNew').onclick=()=>go('nueva');
   drawTable();
 }
@@ -1038,7 +1042,7 @@ function drawTable(){
   const tot=rows.reduce((t,s)=>(t.e+=s.estimado||0,t.c+=s.contratado||0,t),{e:0,c:0});
   const V=COLS.filter(c=>c[0]==='folio'||!((PREFS.colsHidden||[]).includes(c[0])));
   const cell=(k,s)=>{const a=agencia(s.agencia)||{},dif=(s.contratado!=null&&s.estimado!=null)?s.contratado-s.estimado:null;
-    switch(k){case 'folio':return `<td class="folio">${esc(s.folio)}</td>`;
+    switch(k){case 'folio':{const fx=sisIssues(s);return `<td class="folio">${esc(s.folio)}${fx.length?`<span class="falta" title="Para exportar al sistema de mantenimiento falta: ${esc(fx.join(', '))}">Falta: ${esc(fx.join(', '))}</span>`:''}</td>`}
     case 'agencia':return `<td class="nowrap">${esc(s.agencia)}<span class="sub">${esc(a.tipo||'')} · ${esc(a.ciudad||'')}</span></td>`;
     case 'descripcion':return `<td class="desc">${esc(s.descripcion)}<span style="display:block;margin-top:3px">${(s.actividades||[]).map(x=>`<span class="chip">${esc(x.nombre)}</span>`).join('')}</span></td>`;
     case 'fechaSol':return `<td class="nowrap">${fmtD(s.fechaSol)}<span class="sub">${esc(s.solicitante||'—')}</span></td>`;
@@ -1052,7 +1056,7 @@ function drawTable(){
     case 'al':{const A=alertsOf(s),w=worst(A);return `<td>${w?`<span class="alert-dot sev-${w}" title="${esc(A.map(x=>x.msg).join('\n'))}">${A.length}</span>`:''}</td>`}}return '<td></td>'};
   const foot=V.map((c,i)=>i===0?`<td class="muted nowrap">${rows.length} solicitudes</td>`:c[0]==='estimado'?`<td class="num">${money(tot.e)}</td>`:c[0]==='contratado'?`<td class="num">${money(tot.c)}</td>`:c[0]==='dif'?`<td class="num">${money(tot.c-tot.e)}</td>`:'<td></td>').join('');
   $('#segTable').innerHTML=rows.length?`<div class="tablewrap"><table><thead><tr>${V.map(([k,l,c])=>`<th class="${c||''} ${F.sort===k?'sorted':''}" data-k="${k}">${l}${F.sort===k?(F.dir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>
-  ${rows.map(s=>`<tr data-id="${s.id}">${V.map(c=>cell(c[0],s)).join('')}</tr>`).join('')}
+  ${rows.map(s=>`<tr data-id="${s.id}"${sisIssues(s).length?' class="sis-falta"':''}>${V.map(c=>cell(c[0],s)).join('')}</tr>`).join('')}
   </tbody><tfoot><tr>${foot}</tr></tfoot></table></div>`
   :`<div class="panel"><p>No hay solicitudes con estos filtros.</p><button class="btn" id="clrF">Quitar filtros</button></div>`;
   $$('#segTable th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;F.dir=F.sort===k?-F.dir:1;F.sort=k;drawTable()});
@@ -1127,6 +1131,7 @@ function formHTML(s,isNew){
     <div class="f" data-k="prioridad"><label>Prioridad <span class="req">*</span></label><select name="prioridad">${opts(PRIORIDADES,prioOf(s))}</select><span class="msg"></span></div>
     <div class="f" data-k="moneda"><label>Moneda <span class="req">*</span></label><select name="moneda">${opts(MONEDAS,monedaOf(s))}</select><span class="msg"></span></div>
     <div class="f" data-k="equipo"><label>Equipo <span class="muted">(opcional)</span></label><input name="equipo" value="${esc(s.equipo||'')}" placeholder="Ej. minisplit recepción, hidroneumático"><span class="msg"></span></div>
+    ${(()=>{if(isNew)return '';const fx=sisIssues(s);return fx.length?`<div class="f wide"><div class="fs-falta">Para exportar al sistema de mantenimiento falta: ${esc(fx.join(', '))}.${fx.some(x=>x.startsWith('Inmueble'))?' <span style="font-weight:400">El inmueble se asigna por agencia en Importar / exportar → Plantilla → «Inmueble del sistema por agencia»; si no existe, hay que pedir que lo den de alta.</span>':''}</div></div>`:''})()}
     <div class="f wide"><div class="derived"><span>Estado en el sistema: <b>${esc(estSis(s))}</b></span><span>Negocio: <b>${esc(a.tipo||'—')}</b></span><span>Ciudad: <b>${esc(a.ciudad||'—')}</b></span>${sisFaltan(s).length?`<span class="badcell">Para «Resuelto» el sistema pide ${sisFaltan(s).join(' y ')}</span>`:''}</div></div>
     ${estSis(s)==='Resuelto'?`<div class="f wide" data-k="resolucion"><label>Resolución</label><textarea name="resolucion" placeholder="${esc(resolOf({...s,resolucion:''})||'Qué se hizo para resolverlo')}">${esc(s.resolucion||'')}</textarea><span class="sub">Si la dejas vacía, se exporta: «${esc(resolOf({...s,resolucion:''}))}»</span><span class="msg"></span></div>
     <div class="f"><label class="row" style="gap:6px"><input type="checkbox" name="aceptada" ${s.aceptada?'checked':''}> Resolución aceptada</label></div>`:''}
@@ -1948,8 +1953,12 @@ function plNum(n){return (n===null||n===undefined||n==='')?'':String(Math.round(
 function plRows(){
   const p=PL(),g=s=>{const e=cat('estados').find(x=>x.nombre===s.estado);return (e||{}).grupo||'proceso'};
   const list=DB.solicitudes.filter(s=>p.filtro==='todas'||(p.filtro==='abiertas'?estSis(s)!=='Resuelto':p.filtro==='activos'?!archOf(s):p.filtro==='archivados'?archOf(s):g(s)===p.filtro)).slice().sort((a,b)=>String(a.folio).localeCompare(String(b.folio),'es',{numeric:true}));
-  return list.map(s=>p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;let v;try{v=String(src.f(s,c)??'')}catch(e){v=''}if(p.resComoProceso&&c.src==='estado_sis'&&v==='Resuelto')v='En proceso';return v}));
+  return list.map(plRow);
 }
+function plRow(s){const p=PL();return p.cols.map(c=>{const src=PL_SRC[c.src]||PL_SRC.vacio;let v;try{v=String(src.f(s,c)??'')}catch(e){v=''}if(p.resComoProceso&&c.src==='estado_sis'&&v==='Resuelto')v='En proceso';return v})}
+/* Datos que faltan para exportar al sistema de mantenimiento (se marcan en rojo) */
+const SIS_LAB={inmueble_id:'Inmueble del sistema',titulo:'Descripción',tipo:'Tipo',prioridad:'Prioridad',fecha_limite:'Fecha límite (fecha estimada)',moneda:'Moneda',estado:'Estado',negocio:'Negocio'};
+function sisIssues(s){const p=PL(),r=plRow(s),m=[];p.cols.forEach((c,i)=>{const v=r[i],l=SIS_LAB[c.col]||c.col;if(PL_REQ[c.col]&&!v)m.push(l);else if(v&&PL_OK[c.col]&&!PL_OK[c.col].includes(v))m.push(`${l} no válido («${v}»)`)});return m}
 const PL_REQ={titulo:'Descripción',inmueble_id:'Inmueble',tipo:'Tipo',prioridad:'Prioridad',fecha_limite:'Fecha límite',moneda:'Moneda',estado:'Estado'};
 const PL_OK={negocio:TIPOS,tipo:MANT_TIPOS,prioridad:PRIORIDADES,moneda:MONEDAS,estado:EST_SIS,aceptacion:['Sí','No','true','false']};
 function plIssues(r){const p=PL(),m=[];p.cols.forEach((c,i)=>{const v=r[i];if(PL_REQ[c.col]&&!v)m.push(`${PL_REQ[c.col]} vacío`);else if(v&&PL_OK[c.col]&&!PL_OK[c.col].includes(v))m.push(`${c.col}: «${v}» no válido`)});return m}
