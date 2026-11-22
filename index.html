@@ -161,6 +161,10 @@ td.nowrap{white-space:nowrap}
 .g-late{position:absolute;top:13px;height:4px;background:var(--bad);border-radius:2px}
 .wk-tabs{display:flex;gap:6px;margin:10px 0}
 .okcell{color:var(--ok);font-weight:600}.badcell{color:var(--bad);font-weight:600}
+.mlogos{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:5px}.mlogo{height:24px;max-width:96px;object-fit:contain;background:#fff;border-radius:5px;padding:3px 6px;box-sizing:content-box;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.mlogo.mtext{display:inline-flex;align-items:center;height:24px;max-width:none;font-size:11px;font-weight:700;color:#333;letter-spacing:.02em;text-transform:uppercase}
+.logo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}.logo-card{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:1px solid var(--line,rgba(127,127,127,.25));border-radius:8px;padding:10px}
+.logo-card .mlogo{height:30px;max-width:150px}
 tr.sis-falta>td{background:color-mix(in srgb,var(--bad) 7%,transparent)}tr.sis-falta>td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.falta{display:block;margin-top:4px;color:var(--bad);font-weight:600;font-size:11px;line-height:1.3;white-space:normal;max-width:130px}.falta-f{color:var(--bad)}.fs-falta{border:1px solid var(--bad);border-radius:8px;padding:8px 10px;color:var(--bad);font-weight:600;background:color-mix(in srgb,var(--bad) 7%,transparent)}
 details summary{cursor:pointer}
 .cat-table input,.cat-table select{width:100%;min-width:110px;padding:5px 7px}
@@ -247,6 +251,20 @@ const SEED = {"version": 1, "generado": "2026-10-05", "solicitudes": [{"id": "s0
 const KEY='cge_mto_intermedios_v1';
 const OFF=['Recibida','En análisis','Elaboración de propuesta','En cotización o contratación','Anticipo o liquidación','En ejecución de trabajos','Concluida'];
 const TIPOS=['Agencias','Avis y Budget','CAR4U','Corporativo'];
+/* ===== Logos por agencia ===== */
+const MARCAS={cge:{n:'Grupo CGE',f:'logos/cge.png'},car4u:{n:'CAR4U',f:'logos/car4u.png'},avis:{n:'Avis',f:'logos/avis.png'},budget:{n:'Budget',f:'logos/budget.png'},
+  stellantis:{n:'Stellantis',f:'logos/stellantis.png'},renault:{n:'Renault',f:'logos/renault.png'},suzuki:{n:'Suzuki',f:'logos/suzuki.png'},peugeot:{n:'Peugeot',f:'logos/peugeot.png'},
+  jeep:{n:'Jeep',f:'logos/jeep.png'},ram:{n:'Ram',f:'logos/ram.png'},dodge:{n:'Dodge',f:'logos/dodge.png'},fiat:{n:'Fiat',f:'logos/fiat.png'},audi:{n:'Audi',f:'logos/audi.png'},
+  alfaromeo:{n:'Alfa Romeo'},jac:{n:'JAC'},ford:{n:'Ford'},leapmotor:{n:'Leapmotor'},foton:{n:'Fotón'},mitsubishi:{n:'Mitsubishi'},mazda:{n:'Mazda'}};
+const MARCA_RX=[[/corporativo/,['cge']],[/\ba-b-c?\b|\babc\b/,['avis','budget','car4u']],[/car ?4 ?u/,['car4u']],[/mazda/,['mazda']],[/\bavis\b|aivs/,['avis']],[/budget/,['budget']],
+  [/stellantis|jose maria chavez/,['stellantis']],[/alfa ?romeo/,['alfaromeo']],[/renault/,['renault']],[/suzuki|susuki/,['suzuki']],[/\bjac\b/,['jac']],[/\bford\b/,['ford']],
+  [/leap ?motor/,['leapmotor']],[/foton/,['foton']],[/mitsubishi/,['mitsubishi']],[/peugeot/,['peugeot']],[/jeep/,['jeep']],[/\bram\b/,['ram']],[/dodge/,['dodge']],[/fiat/,['fiat']],[/audi/,['audi']]];
+function marcaKey(t){t=strip(t).replace(/[^a-z0-9]/g,'');return Object.keys(marcasAll()).find(k=>k===t||strip(marcasAll()[k].n).replace(/[^a-z0-9]/g,'')===t)||t}
+function marcasAll(){const o=Object.assign({},MARCAS),c=(DB&&DB.cfg&&DB.cfg.logos)||{};Object.entries(c).forEach(([k,v])=>{o[k]=Object.assign({},o[k]||{n:v.n||k},v.n?{n:v.n}:{},v.img?{img:v.img}:{})});return o}
+function marcasDe(a){if(!a)return [];if(a.marcas&&String(a.marcas).trim())return [...new Set(String(a.marcas).split(',').map(x=>x.trim()).filter(Boolean).map(marcaKey))];
+  const t=strip(a.nombre||'');let r=[];MARCA_RX.forEach(([rx,ks])=>{if(rx.test(t))r.push(...ks)});if(!r.length&&a.tipo==='CAR4U')r=['car4u'];if(!r.length)r=['cge'];
+  return [...new Set(r)]}
+function logosHTML(a){const M=marcasAll();return marcasDe(a).map(k=>{const m=M[k]||{n:k},src=m.img||m.f;return src?`<img class="mlogo" src="${esc(src)}" alt="${esc(m.n)}" title="${esc(m.n)}" loading="lazy">`:`<span class="mlogo mtext" title="${esc(m.n)} (sin logo: súbelo en Configuración)">${esc(m.n)}</span>`}).join('')}
 /* ===== Catálogos del sistema de mantenimiento (empate) ===== */
 const CIUDADES=['San Francisco de Campeche','Acapulco de Juárez','Aguascalientes','Campeche','Cancún','Ciudad de México','Ensenada','Fresnillo','Guadalajara','Guadalupe','La Paz','Lagos de Moreno','León de los Aldama','Los Cabos','Mexicali','Playa del Carmen','Puebla','San José del Cabo','Santiago de Querétaro','Tijuana','Tulum','Tuxtla Gutiérrez','Zacatecas','Zapopan'];
 const MANT_TIPOS=['Preventivo','Correctivo'],PRIORIDADES=['Alta','Media','Baja'],MONEDAS=['MXN','USD'],EST_SIS=['Abierto','En proceso','Resuelto'];
@@ -1044,7 +1062,7 @@ function drawTable(){
   const V=COLS.filter(c=>c[0]==='folio'||!((PREFS.colsHidden||[]).includes(c[0])));
   const cell=(k,s)=>{const a=agencia(s.agencia)||{},dif=(s.contratado!=null&&s.estimado!=null)?s.contratado-s.estimado:null;
     switch(k){case 'folio':{const fx=sisIssues(s);return `<td class="folio">${esc(s.folio)}${fx.length?`<span class="falta" title="Para exportar al sistema de mantenimiento falta: ${esc(fx.join(', '))}">Falta: ${esc(fx.join(', '))}</span>`:''}</td>`}
-    case 'agencia':return `<td class="nowrap">${esc(s.agencia)}<span class="sub">${esc(a.tipo||'')} · ${esc(a.ciudad||'')}</span></td>`;
+    case 'agencia':{const lg=logosHTML(a);return `<td class="nowrap">${lg?`<span class="mlogos">${lg}</span>`:''}${esc(s.agencia)}<span class="sub">${esc(a.tipo||'')} · ${esc(a.ciudad||'')}</span></td>`}
     case 'descripcion':return `<td class="desc">${esc(s.descripcion)}<span style="display:block;margin-top:3px">${(s.actividades||[]).map(x=>`<span class="chip">${esc(x.nombre)}</span>`).join('')}</span></td>`;
     case 'fechaSol':return `<td class="nowrap">${fmtD(s.fechaSol)}<span class="sub">${esc(s.solicitante||'—')}</span></td>`;
     case 'responsable':return `<td>${esc(s.responsable||'—')}</td>`;
@@ -1282,7 +1300,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#modal').clas
 
 /* ================= DATOS (catálogos) ================= */
 const CATS={
-  agencias:{t:'Agencias y ubicaciones',cols:[['nombre','Agencia'],['tipo','Negocio','sel',TIPOS],['ciudad','Ciudad','sel',CIUDADES],['entidad','Entidad'],['razon','Razón social'],['alias','Otras formas de escribirla (separadas por coma)']],ref:'agencia'},
+  agencias:{t:'Agencias y ubicaciones',cols:[['nombre','Agencia'],['tipo','Negocio','sel',TIPOS],['ciudad','Ciudad','sel',CIUDADES],['entidad','Entidad'],['razon','Razón social'],['alias','Otras formas de escribirla (separadas por coma)'],['marcas','Logos (marcas separadas por coma; vacío = automático)']],ref:'agencia'},
   responsables:{t:'Responsables',cols:[['nombre','Nombre']],ref:'responsable'},
   solicitantes:{t:'Solicitantes',cols:[['nombre','Nombre'],['cargo','Cargo'],['agencia','Agencia']],ref:'solicitante'},
   actividades:{t:'Actividades',cols:[['nombre','Actividad']]},
@@ -2116,6 +2134,11 @@ function renderCfg(){
     <div class="f"><label>Tamaño de gráficas por defecto</label>${sel('chartSize',SZ,p.chartSize)}</div>
     <div class="f wide"><label>Columnas visibles en Seguimiento</label><div class="colchecks">${COLS.filter(c=>c[0]!=='folio').map(([k,l])=>`<label class="row" style="gap:5px"><input type="checkbox" data-col="${k}" ${p.colsHidden.includes(k)?'':'checked'}> ${l==='⚠'?'Alertas':l}</label>`).join('')}</div></div>
    </div></div>
+   <div class="fs teamcfg" style="grid-column:1/-1"><h3>Logos de marcas <small>Compartido · se muestran junto a cada agencia en Seguimiento</small></h3>
+    <p class="note">Cada agencia toma sus logos automáticamente por su nombre; para cambiarlos usa la columna «Logos» del catálogo de agencias. Las marcas sin logo se ven como texto: sube su imagen (PNG con fondo transparente o blanco).</p>
+    <div class="logo-grid">${Object.entries(marcasAll()).map(([k,m])=>`<div class="logo-card"><span>${logosHTML({marcas:k})}</span><b style="font-size:13px">${esc(m.n)}</b><span class="muted" style="font-size:12px">${cat('agencias').filter(a=>marcasDe(a).includes(k)).length} agencias</span><span class="row" style="gap:6px"><label class="btn small">Subir logo<input type="file" accept="image/*" data-logo="${esc(k)}" hidden></label>${(DB.cfg.logos||{})[k]&&(DB.cfg.logos[k].img)?`<button class="btn small" data-logodel="${esc(k)}">Quitar</button>`:''}</span></div>`).join('')}
+     <div class="logo-card"><b style="font-size:13px">Agregar marca</b><input id="logoNew" placeholder="Nombre, ej. Nissan"><button class="btn small" id="logoAdd">Agregar</button></div></div>
+   </div>
    <div class="fs"><h3>Reportes en PDF</h3><div class="fields">
     <div class="f wide"><label>Nombre para la firma «Elaboró»</label><input data-pref="firma" value="${esc(p.firma)}" placeholder="Vacío = sin firma"></div>
     <div class="f"><label>Gráficas en el PDF semanal</label>${sel('pdfGraf',[['true','Incluir'],['false','No incluir']],String(p.pdfGraf!==false))}</div>
@@ -2143,6 +2166,10 @@ function renderCfg(){
   $$('[data-wk]',el).forEach(i=>i.onchange=()=>{if(CLOUD.on&&CLOUD.readonly)return;const c=CFG(),k=i.dataset.wk,old=c[k];c[k]=/Dia$|porVencer|sobrecosto/.test(k)?+i.value:i.value;
     if(/^sem/.test(k)&&(c.semFinDia-1)*1440+hm(c.semFinHora)<=(c.semIniDia-1)*1440+hm(c.semIniHora)){c[k]=old;i.value=old;toast('El fin de la semana debe ser después del inicio');return}
     save();toast('Ajuste compartido guardado');renderCfg()});
+  $$('[data-logo]',el).forEach(i=>i.onchange=()=>{if(CLOUD.on&&CLOUD.readonly)return toast('Solo lectura');const f=i.files[0];if(!f)return;const k=i.dataset.logo,rd=new FileReader();rd.onload=()=>{const im=new Image();im.onload=()=>{const h=72,w=Math.min(300,Math.round(im.width*h/im.height)),hh=Math.round(im.height*w/im.width);const c=document.createElement('canvas');c.width=w;c.height=Math.min(h,hh);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      DB.cfg.logos=DB.cfg.logos||{};DB.cfg.logos[k]=Object.assign({},DB.cfg.logos[k],{n:(marcasAll()[k]||{}).n||k,img:c.toDataURL('image/png')});save();toast('Logo guardado');renderCfg()};im.src=rd.result};rd.readAsDataURL(f)});
+  $$('[data-logodel]',el).forEach(b=>b.onclick=()=>{const k=b.dataset.logodel;if(DB.cfg.logos&&DB.cfg.logos[k]){delete DB.cfg.logos[k].img;if(!MARCAS[k]&&!DB.cfg.logos[k].n)delete DB.cfg.logos[k]}save();renderCfg()});
+  $('#logoAdd',el).onclick=()=>{if(CLOUD.on&&CLOUD.readonly)return toast('Solo lectura');const n=$('#logoNew',el).value.trim();if(!n)return;const k=strip(n).replace(/[^a-z0-9]/g,'');if(!k)return;DB.cfg.logos=DB.cfg.logos||{};DB.cfg.logos[k]=Object.assign({},DB.cfg.logos[k],{n});save();toast('Marca agregada; sube su logo');renderCfg()};
   $('#prefReset',el).onclick=async()=>{if(await confirmBox('Restablecer','Se regresan apariencia, pestañas, columnas y orden de recuadros a como venían.','Restablecer')){const keep={dash:PREFS.dash,lastExport:PREFS.lastExport};PREFS=Object.assign(clone(PREF_DEF),keep);savePrefs();applyPrefs();renderCfg()}};
 }
 
