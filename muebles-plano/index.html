@@ -105,7 +105,9 @@ button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#3741
 .xdb .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12.5px;border-radius:8px;padding:7px 9px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:95;background:#111827;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;box-shadow:0 6px 20px #0005;max-width:90vw}
 #sv{color:#9ca3af;font-size:12px;white-space:nowrap;min-width:90px}
-#pm,#cm,#xd{position:fixed;inset:0;background:#0006;z-index:60;display:flex;align-items:center;justify-content:center}
+#pm,#cm,#md{position:fixed;inset:0;background:#0006;z-index:60;display:flex;align-items:center;justify-content:center}#md[hidden]{display:none}
+#md .xdb label.f{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:3px;font-size:12px;color:#4b5563}#md header b{white-space:nowrap}#md footer button,#md footer select{white-space:nowrap}#md input[type=text],#md input[type=email],#md textarea,#md select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid #cfd5dd;border-radius:6px;width:100%;box-sizing:border-box}#md textarea{resize:vertical}#md .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#xd{position:fixed;inset:0;background:#0006;z-index:60;display:flex;align-items:center;justify-content:center}
 .pmb{background:#f4f5f8;border-radius:12px;width:min(780px,94vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px #0006}
 .pmb.wide{width:min(1180px,97vw);max-height:92vh}
 .pmb header{display:flex;gap:8px;align-items:center;padding:12px 14px;background:#fff;border-bottom:1px solid #dde1e7}.pmb header b{flex:1;font-size:16px}
@@ -238,6 +240,7 @@ button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#3741
 <div class="two"><button class="mini pri" id="reqP">PDF</button><button class="mini" id="reqX">Excel</button></div>
 </div></details>
 <button class="mini pri" id="expbtn2" style="padding:9px">Exportar varios documentos…</button>
+<button class="mini" id="mailbtn" style="padding:9px;margin-top:6px;background:#fff;color:#1e40af;border:1px solid #93c5fd;width:100%">✉ Redactar correo…</button>
 <div class="note">Los folios se asignan solos al exportar por primera vez (consecutivos en este navegador). Para un folio nuevo, borra el campo.</div>
 </div>
 </div></div>
@@ -257,6 +260,15 @@ button:disabled{opacity:.4;cursor:default}button:disabled:hover{background:#3741
 <label><input type="radio" name="xm" value="sep"> Un PDF por documento</label>
 <div class="warn" id="xwarn" hidden></div>
 </div><footer><span id="xdnote"></span><button id="xdgo" style="background:#16a34a">Exportar</button></footer></div></div>
+<div id="md" hidden><div class="pmb" style="width:min(760px,96vw)"><header><b>Redactar correo</b><select id="mtype" style="margin-left:auto;font:inherit;padding:5px"><option value="cot">Solicitud de cotización a proveedor</option><option value="req">Requisición a Compras</option><option value="pre">Presupuesto para autorización</option><option value="cli">Cotización al cliente</option></select><button id="mclose">Cerrar</button></header>
+<div class="xdb">
+<div class="row" id="mfil"><label class="f">Proveedor<select id="msup"></select></label><label class="ck" style="align-self:end;flex-direction:row;font-size:13px"><input type="checkbox" id="mpend" checked> Solo artículos "Por cotizar"</label></div>
+<div class="row"><label class="f">Para<input type="text" id="mto" autocomplete="off" placeholder="correo@proveedor.com"></label><label class="f">CC<input type="text" id="mcc" autocomplete="off" placeholder="opcional"></label></div>
+<label class="f">Asunto<input type="text" id="msub" autocomplete="off"></label>
+<label class="f">Mensaje <small style="color:#9ca3af">puedes editarlo antes de enviarlo</small><textarea id="mbody" rows="16"></textarea></label>
+<label class="f">Firma <small style="color:#9ca3af">se guarda en este navegador</small><textarea id="msig" rows="3" placeholder="Nombre&#10;Puesto · Grupo CGE&#10;Teléfono"></textarea></label>
+<div class="note" id="mnote" style="margin:0"></div>
+</div><footer><span style="display:flex;gap:6px;align-items:center"><button id="mregen">Regenerar texto</button><button id="mpdf">Exportar PDF para adjuntar</button></span><span style="display:flex;gap:6px;align-items:center"><select id="mvia" style="font:inherit;padding:5px"><option value="app">App de correo (Outlook)</option><option value="owa">Outlook web</option><option value="gm">Gmail</option></select><button id="mopen" style="background:#2563eb">Abrir correo</button><button id="mcopy">Copiar</button></span></footer></div></div>
 <div id="toast" hidden></div>
 <div id="pm" hidden><div class="pmb"><header><b>Mis proyectos</b><button id="pnew" style="background:#2563eb">+ Nuevo proyecto</button><button id="pclose">Cerrar</button></header><div id="plist"></div><footer><span>Todo se guarda solo en este navegador, no tienes que exportar nada.</span><span class="bk"><button id="save">Descargar respaldo</button><label class="b">Abrir respaldo<input id="load" type="file" accept=".json" hidden></label></span></footer></div></div>
 <div id="cm" hidden><div class="pmb wide"><header><b>Catálogo de muebles</b><input type="search" id="cmq" placeholder="Filtrar…"><button id="cmadd">+ Agregar mueble</button><button id="cmclose" style="background:#2563eb">Listo</button></header><div class="cmw"><table id="cmt"><thead><tr><th>Imagen</th><th>Código</th><th>Descripción</th><th>Referencia / modelo</th><th>Ficha (detalle)</th><th>Categoría</th><th>Ancho (m)</th><th>Fondo (m)</th><th>Precio unitario</th><th>Precio al</th><th>Origen</th><th>Proveedor</th><th>Link</th><th>Color</th><th>IVA en precio</th><th>Forma</th><th>Brazo L (m)</th><th>Usados</th><th></th></tr></thead><tbody></tbody></table></div><footer><span>Ancho = frente, fondo = profundidad, en metros. Sin medidas = solo para requisición (no se dibuja en el plano). Los cambios aplican a todos tus proyectos.</span><span class="bk"><button id="cmsort">Ordenar por código</button></span></footer></div></div>
@@ -485,7 +497,7 @@ cv.onpointerup=()=>{const d=drag;drag=null;if(d&&d.m=='crop'){if(!(crop.w>10&&cr
 cv.ondblclick=()=>{if(tool=='zone'&&$('zmode').value=='poly'&&zonePts.length){let P=zonePts.map(q=>[q.x,q.y]);while(P.length>1&&Math.hypot(P[P.length-1][0]-P[P.length-2][0],P[P.length-1][1]-P[P.length-2][1])<3/view.z)P.pop();zonePts=[];finishZone(P);draw();checkpoint()}};
 function tipOn(e,t){const T=$('tip');T.textContent=t;T.hidden=false;T.style.left=(e.clientX+14)+'px';T.style.top=(e.clientY+14)+'px'}function tipOff(){$('tip').hidden=true}
 cv.onwheel=e=>{e.preventDefault();const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,k=e.deltaY<0?1.15:1/1.15;view.x=mx-(mx-view.x)*k;view.y=my-(my-view.y)*k;view.z*=k;paint();schedHi()};
-addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(!$('cm').hidden||!$('xd').hidden||!$('pm').hidden&&e.key!='Escape')return;
+addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;if(!$('cm').hidden||!$('xd').hidden||!$('md').hidden||!$('pm').hidden&&e.key!='Escape')return;
 if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k=='z'&&!e.shiftKey){e.preventDefault();undo();return}if(k=='y'||(k=='z'&&e.shiftKey)){e.preventDefault();redo();return}if(k=='d'){e.preventDefault();dupItem();draw();checkpoint();return}}
 if(e.key=='Enter'){if(crop&&tool=='crop')applyCrop();if(tool=='zone'&&zonePts.length>2){const P=zonePts.map(q=>[q.x,q.y]);zonePts=[];finishZone(P);draw();checkpoint()}}
 if(e.key=='Delete'||e.key=='Backspace')del();
@@ -999,4 +1011,41 @@ CATALOG=sampleCatalog();CATSAMPLE=false;rebuildCAT();qUI();renderLv();setV('irot
 resize();setTool('sel');try{if(localStorage.getItem('muebles_tab')=='docs')setTab('docs')}catch(e){}
 try{const o=indexedDB.open('MueblesPlano',1);o.onupgradeneeded=()=>o.result.createObjectStore('p');o.onsuccess=()=>{idb=o.result;init()};o.onerror=()=>{curId=uid();restored=true}}catch(e){curId=uid();restored=true}
 addEventListener('beforeunload',()=>persist());
+
+// ---------- redactor de correos ----------
+const MD=$('md'),lsGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return''}},lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+function mObra(){return(Q.rsub||'').trim()||$('pname').value.trim()||'el proyecto'}
+function mItems(){const d=quoteData('int'),pend=$('mpend').checked,sp=$('msup').value;return d.rows.filter(r=>(!pend||stOf(r)=='Por cotizar')&&(!sp||(r.sup||'Sin proveedor')==sp))}
+function mSups(){const d=quoteData('int'),pend=$('mpend').checked,set=new Set(d.rows.filter(r=>!pend||stOf(r)=='Por cotizar').map(r=>r.sup||'Sin proveedor'));const e=$('msup'),v=e.value;e.innerHTML='<option value="">Todos</option>'+[...set].sort().map(x=>'<option>'+esc(x)+'</option>').join('');e.value=[...set].includes(v)?v:''}
+function mLine(r,i,full){const c=CAT.get(r.code)||{},gen=isGen(c),L=[(i+1)+'. '+r.name+' — '+r.qty+' pz'];
+if(full){if(r.ref&&!/por cotizar/i.test(r.ref))L.push('   Modelo / referencia: '+r.ref);if(+r.w&&+r.d&&!/Medidas:/.test(r.det||''))L.push('   Medidas: '+fm(r.w)+' × '+fm(r.d)+' m');if(r.det)L.push('   Especificaciones: '+r.det);if(gen)L.push('   Abierto a su propuesta de modelo, acabado y precio.');if(r.link)L.push('   Referencia: '+r.link)}
+else if(r.sup)L[0]+=' (proveedor sugerido: '+r.sup+')';return L.join('\n')}
+function mGen(){const t=$('mtype').value,ob=mObra(),br=(BRANDS[Q.brand]||BRANDS.cge).n,sig=$('msig').value.trim(),M=(Q.mail||{})[t]||{};$('mfil').style.display=t=='cot'?'':'none';let sub='',b='',note='';
+if(t=='cot'){mSups();const R=mItems();sub='Solicitud de cotización – '+ob;
+b='Buen día,\n\nPor medio del presente les solicito de favor su cotización de los siguientes artículos para '+ob+' ('+br+'):\n\n'+(R.length?R.map((r,i)=>mLine(r,i,true)).join('\n\n'):'(No hay artículos con este filtro)')+'\n\nFavor de indicar por artículo: precio unitario (especificando si incluye IVA), tiempo de entrega, vigencia de la cotización y si el precio incluye flete e instalación.\n\nQuedo atento a su respuesta. Saludos.';
+note=R.length+' artículo(s). Tip: elige un proveedor para mandarle solo lo suyo.'}
+else if(t=='req'){const R=reqRows(),f=Q.freq||$('q_freq').value;sub='Requisición de compra'+(f?' '+f:'')+' – '+ob;
+b='Buen día,\n\nPor medio del presente les envío la requisición de compra'+(f?' '+f:'')+' de mobiliario y equipo para '+ob+' ('+br+'). Adjunto el PDF con el listado y las fichas de referencia.\n\nResumen:\n'+(R.length?R.map((r,i)=>mLine(r,i,false)).join('\n'):'(Sin artículos)')+'\n\nTotal: '+R.reduce((a,r)=>a+r.qty,0)+' pieza(s).\n\nQuedo atento a cualquier duda. Saludos.';
+note='Exporta la requisición en PDF y adjúntala al correo.'}
+else if(t=='pre'){const d=quoteData('int'),f=Q.fpre||$('q_fpre').value;sub='Presupuesto'+(f?' '+f:'')+' – Mobiliario '+ob;
+const L=['Muebles ('+d.pcs+' pz): '+money(d.sub)];if(d.cont)L.push('Imprevistos ('+(+Q.cont)+'%): '+money(d.cont));if(d.fle)L.push('Flete e instalación: '+money(d.fle));L.push('IVA ('+(+Q.iva)+'%): '+money(d.iva));L.push('TOTAL'+(Q.avis?' APROXIMADO':'')+': '+money(d.tot));
+b='Buen día,\n\nLes comparto el presupuesto'+(f?' '+f:'')+' para amueblar '+ob+' ('+br+'), para su revisión y autorización:\n\n'+L.map(x=>'• '+x).join('\n')+(d.noPrice?'\n\nNota: '+d.noPrice+' artículo(s) aún sin precio (por cotizar), por lo que el total puede aumentar.':'')+(Q.avis&&Q.avtx?'\n\n'+Q.avtx:'')+'\n\nAdjunto el PDF con el detalle por artículo.\n\nQuedo atento a sus comentarios. Saludos.';
+note=d.noPrice?d.noPrice+' artículo(s) sin precio.':'Exporta el presupuesto en PDF y adjúntalo.'}
+else{const d=quoteData('cli'),f=Q.fcot||$('q_fcot').value;sub='Cotización'+(f?' '+f:'')+' – Mobiliario '+ob;
+b=(Q.att?'Estimado(a) '+Q.att+':':'Buen día,')+'\n\nPor medio del presente le hago llegar la cotización'+(f?' '+f:'')+' de mobiliario para '+ob+(Q.cli?' de '+Q.cli:'')+'.\n\nTotal: '+money(d.tot)+' IVA incluido ('+d.pcs+' pieza(s)).\nVigencia: '+(+Q.vig||15)+' días.'+(Q.cond?'\n\nCondiciones:\n'+Q.cond.split('\n').filter(Boolean).map(x=>'• '+x).join('\n'):'')+'\n\nAdjunto el PDF con el detalle. Quedo a sus órdenes para cualquier duda. Saludos.';
+note='Exporta la cotización en PDF y adjúntala.'}
+$('msub').value=sub;$('mbody').value=b+(sig?'\n\n'+sig:'');$('mto').value=M.to||'';$('mcc').value=M.cc||'';$('mnote').textContent=note}
+function mSaveTo(){const t=$('mtype').value;Q.mail=Q.mail||{};Q.mail[t]={to:$('mto').value.trim(),cc:$('mcc').value.trim()};sched()}
+function openMail(t){blurAll();if(t)$('mtype').value=t;$('msig').value=lsGet('mp_firma');MD.hidden=false;mGen()}
+$('mailbtn').onclick=()=>openMail();$('mclose').onclick=()=>{mSaveTo();MD.hidden=true};MD.onclick=e=>{if(e.target==MD){mSaveTo();MD.hidden=true}};
+$('mtype').onchange=mGen;$('msup').onchange=mGen;$('mpend').onchange=mGen;$('mregen').onclick=mGen;
+['mto','mcc'].forEach(id=>$(id).onchange=mSaveTo);$('msig').onchange=()=>{lsSet('mp_firma',$('msig').value);mGen()};
+$('mpdf').onclick=()=>{mSaveTo();const t=$('mtype').value;MD.hidden=true;exportDocs(t=='cot'?{req:true,one:true}:{[t]:true,one:true})};
+async function mClip(){const txt=$('mbody').value;try{await navigator.clipboard.writeText(txt);return true}catch(e){const a=$('mbody');a.select();try{return document.execCommand('copy')}catch(_){return false}}}
+$('mcopy').onclick=async()=>{toast(await mClip()?'Mensaje copiado':'No se pudo copiar; selecciónalo y usa Ctrl+C')};
+$('mopen').onclick=async()=>{mSaveTo();const to=$('mto').value.trim(),cc=$('mcc').value.trim(),su=$('msub').value,bo=$('mbody').value,v=$('mvia').value,E=encodeURIComponent;let u;
+if(v=='owa')u='https://outlook.office.com/mail/deeplink/compose?to='+E(to)+(cc?'&cc='+E(cc):'')+'&subject='+E(su)+'&body='+E(bo);
+else if(v=='gm')u='https://mail.google.com/mail/?view=cm&fs=1&to='+E(to)+(cc?'&cc='+E(cc):'')+'&su='+E(su)+'&body='+E(bo);
+else u='mailto:'+E(to).replace(/%40/g,'@').replace(/%2C/g,',')+'?'+(cc?'cc='+E(cc)+'&':'')+'subject='+E(su)+'&body='+E(bo);
+const long=u.length>1900;if(long)await mClip();if(v=='app')location.href=u;else window.open(u,'_blank');if(long)toast('El mensaje es largo: también quedó copiado por si tu correo lo recorta (pégalo con Ctrl+V).')};
 </script></body></html>
