@@ -68,7 +68,7 @@ const APPS=[
  {n:'Viáticos',d:'Solicitud y comprobación de viáticos editando directo sobre la hoja, con totales automáticos y exportación directa a PDF.',url:'../viaticos/',ic:'🧾',c:'#b45309',t:'Administración',on:true},
  {n:'Seguimiento de actividades',d:'Notas rápidas con avisos, pedidos con temporizador por fase, cotizaciones a proveedores con semáforo de seguimiento y reportes en PDF. Pide contraseña.',url:'../seguimiento-actividades/',ic:'⏱️',c:'#0f766e',t:'Administración',on:true},
  {n:'Solicitud de Mobiliario',d:'Formato de mobiliario con imágenes y ligas, en carta vertical u horizontal.',url:'',ic:'🪑',c:'#be123c',t:'Obra',on:false},
- {n:'Directorio de agencias',d:'Base de datos de agencias: planos, equipos, metros y catálogo exportable.',url:'',ic:'🏢',c:'#0e7490',t:'Red',on:false}
+ {n:'Directorio de agencias (Fichero)',d:'Bases de datos configurables: agencias con revisión de planos, equipos y metros, gráficas y catálogo en PDF; varios proyectos. Pide contraseña.',url:'../fichero/',ic:'🏢',c:'#0e7490',t:'Red',on:true}
 ];
 const $=i=>document.getElementById(i),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const card=a=>{const inner=`<div class="ic" style="background:${a.c}">${a.ic}</div><b>${esc(a.n)}</b><p>${esc(a.d)}</p><div class="ft"><span class="tag">${esc(a.t)}</span><span class="go">${a.on?'Abrir →':'Aún no está en línea'}</span></div>`;
