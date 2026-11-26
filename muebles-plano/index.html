@@ -836,8 +836,7 @@ pdf.setFont('helvetica','normal');pdf.setFontSize(6.6*k);pdf.setTextColor(40);pd
 if(r.link){pdf.setFontSize(7.4*k);const tw=pdf.getTextWidth('Ver');link('Ver',X[5]+C[5][1]/2-tw/2,mid(1,7.4*k),r.link,7.4*k)}else{pdf.setTextColor(160);pdf.text('—',X[5]+C[5][1]/2,mid(1,7.4*k),{align:'center'})}y+=rh});
 // fichas
 const gap=7*k,bw=(cw-gap)/2,top=34*k,bh=(bottom-top-gap)/2;
-for(let p0=0;p0<R2.length;p0+=4){head('Fichas de referencia',(Math.min(p0+4,R2.length)>p0+1?'Equipos '+(p0+1)+' a '+Math.min(p0+4,R2.length):'Equipo '+(p0+1))+'  |  '+sub);
-R2.slice(p0,p0+4).forEach((r,q)=>{const n=p0+q+1,bx=M+(q%2)*(bw+gap),by=top+Math.floor(q/2)*(bh+gap),P=4*k;pdf.setDrawColor(150);pdf.setLineWidth(.25*k);pdf.rect(bx,by,bw,bh);
+const card=(r,n,bx,by,bh)=>{const P=4*k;pdf.setDrawColor(150);pdf.setLineWidth(.25*k);pdf.rect(bx,by,bw,bh);
 pdf.setFillColor(28,28,30);pdf.circle(bx+P+3.6*k,by+P+3.6*k,3.6*k,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(8.5*k);pdf.setTextColor(255);pdf.text(String(n),bx+P+3.6*k,by+P+4.6*k,{align:'center'});
 pdf.setFillColor(236,237,240);const pill='Cant. '+r.qty;pdf.setFontSize(7*k);const pw=pdf.getTextWidth(pill)+7*k;pdf.roundedRect(bx+bw-P-pw,by+P,pw,7.2*k,1.6*k,1.6*k,'F');pdf.setTextColor(30);pdf.text(pill,bx+bw-P-pw/2,by+P+4.7*k,{align:'center'});
 pdf.setFontSize(8.6*k);pdf.setTextColor(20);const tt=pdf.splitTextToSize(r.name,bw-2*P-pw-11*k).slice(0,2);pdf.text(tt,bx+P+9.5*k,by+P+(tt.length>1?2.6*k:4.6*k));
@@ -846,7 +845,15 @@ else{pdf.setFillColor(243,244,246);pdf.setDrawColor(200);pdf.setLineDashPattern(
 let ty=iy+ih+6*k;const lab=(a,b)=>{pdf.setFont('helvetica','bold');pdf.setFontSize(7.4*k);pdf.setTextColor(20);pdf.text(a,bx+P,ty);const lw=pdf.getTextWidth(a+' ');pdf.setFont('helvetica','normal');const L=pdf.splitTextToSize(b,bw-2*P-lw);pdf.text(L[0]||'',bx+P+lw,ty);ty+=3.4*k;
 if(L.length>1){const L2=pdf.splitTextToSize(L.slice(1).join(' '),bw-2*P).slice(0,2);pdf.text(L2,bx+P,ty);ty+=3.4*k*L2.length}};
 lab('Referencia:',r.ref||'Por cotizar');lab('Proveedor:',r.sup||'Por definir');if(r.det){pdf.setFont('helvetica','normal');pdf.setFontSize(7.4*k);pdf.setTextColor(40);const L=pdf.splitTextToSize(r.det,bw-2*P);const maxL=Math.max(1,Math.floor((by+bh-10*k-ty)/(3.4*k)));pdf.text(L.slice(0,maxL),bx+P,ty)}
-if(r.link)link('Abrir link del producto',bx+P,by+bh-P,r.link,7.2*k);else{pdf.setFont('helvetica','normal');pdf.setFontSize(7.2*k);pdf.setTextColor(120);pdf.text('Link: pendiente',bx+P,by+bh-P)}})}
+if(r.link)link('Abrir link del producto',bx+P,by+bh-P,r.link,7.2*k);else{pdf.setFont('helvetica','normal');pdf.setFontSize(7.2*k);pdf.setTextColor(120);pdf.text('Link: pendiente',bx+P,by+bh-P)}};
+// fichas en la misma hoja del listado cuando caben
+let first=0;{const T=y+11*k,space=bottom-T,n=R2.length;let rows=0,bhF=bh;
+if(n<=4){const need=Math.ceil(n/2),b2=Math.min(bh,(space-gap*(need-1))/need);if(b2>=70*k){rows=need;bhF=b2}}
+if(!rows)rows=Math.max(0,Math.floor((space+gap)/(bh+gap)));
+first=Math.min(n,rows*2);if(first){pdf.setFont('helvetica','bold');pdf.setFontSize(10*k);pdf.setTextColor(20);pdf.text('Fichas de referencia',M,y+8*k);
+R2.slice(0,first).forEach((r,q)=>card(r,q+1,M+(q%2)*(bw+gap),T+Math.floor(q/2)*(bhF+gap),bhF))}}
+for(let p0=first;p0<R2.length;p0+=4){head('Fichas de referencia',(Math.min(p0+4,R2.length)>p0+1?'Equipos '+(p0+1)+' a '+Math.min(p0+4,R2.length):'Equipo '+(p0+1))+'  |  '+sub);
+R2.slice(p0,p0+4).forEach((r,q)=>card(r,p0+q+1,M+(q%2)*(bw+gap),top+Math.floor(q/2)*(bh+gap),bh))}
 const N=pdf.getNumberOfPages();for(let i=1;i<=N;i++){pdf.setPage(i);pdf.setFont('helvetica','normal');pdf.setFontSize(6.6*k);pdf.setTextColor(120);pdf.text(BN+' · Desarrollo de Red · Requisición de compras '+(fol?fol+' · ':'')+sub+'        Página '+i+' de '+N,w-M,h-12*k,{align:'right'})}}
 
 // ---------- respaldo ----------
